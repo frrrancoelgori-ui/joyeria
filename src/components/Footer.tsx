@@ -5,8 +5,8 @@ export function Footer() {
   const branches = [
     {
       name: 'Diamante Real Centro',
-      address: 'Av. Principal 123, Ciudad Principal',
-      phone: '+1 (555) 123-4567',
+      address: 'Av. Gabriela mistral 1120, Los Angeles ',
+      phone: '+56 (9) 41228089',
       hours: 'Lun-Vie: 9:00-19:00, Sáb: 10:00-20:00'
     },
     {
@@ -101,7 +101,7 @@ export function Footer() {
             </h3>
             <div className="aspect-video bg-charcoal-800 rounded-lg overflow-hidden border-2 border-silver-500">
               <iframe
-                src="https://www.google.com/maps/embed?pb=!1m18!1m12!1m3!1d3976.8234567890123!2d-74.0059945!3d40.7127753!2m3!1f0!2f0!3f0!3m2!1i1024!2i768!4f13.1!3m3!1m2!1s0x0%3A0x0!2zNDDCsDQyJzQ2LjAiTiA3NMKwMDAnMjEuNiJX!5e0!3m2!1sen!2sus!4v1234567890123"
+                src="https://www.google.com/maps/@-37.4867772,-72.3419136,14z?entry=ttu&g_ep=EgoyMDI2MDEyNi4wIKXMDSoKLDEwMDc5MjA2N0gBUAM%3D"
                 width="100%"
                 height="100%"
                 style={{ border: 0 }}
@@ -130,7 +130,7 @@ export function Footer() {
                 <Phone className="h-5 w-5 text-gold-500 mr-3" />
                 <div>
                   <p className="text-white font-medium">Línea de Atención</p>
-                  <p className="text-platinum-300">+1 (555) 000-JOYA</p>
+                  <p className="text-platinum-300">+1 (56) 941228089</p>
                 </div>
               </div>
               <div className="flex items-start">
@@ -200,7 +200,7 @@ export function Footer() {
             <span className="text-gold-500"> Joyería de Lujo desde 1998</span>
           </p>
           <p className="text-platinum-500 text-xs mt-2">
-            Diseñado con 💎 para momentos únicos e inolvidables
+            BJ soluciones informaticas 
           </p>
         </div>
       </div>
