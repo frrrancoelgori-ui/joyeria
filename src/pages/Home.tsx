@@ -272,7 +272,7 @@ export function Home() {
         {/* Productos - Carrusel en móvil + Grid en desktop */}
         {filteredProducts.length > 0 ? (
           <>
-            {/* Carrusel solo en móvil (sm y menor) */}
+            {/* Carrusel solo visible en móvil (sm y menor) */}
             <div className="block sm:hidden">
               <Swiper
                 modules={[Pagination, FreeMode]}
@@ -291,7 +291,7 @@ export function Home() {
               </Swiper>
             </div>
 
-            {/* Grid en pantallas medianas y grandes */}
+            {/* Grid visible en pantallas medianas y grandes */}
             <div className="hidden sm:grid sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-5 gap-6 md:gap-8">
               {filteredProducts.map(product => (
                 <ProductCard key={product.id} product={product} showAddToCart={true} />
