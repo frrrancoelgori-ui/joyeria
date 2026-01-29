@@ -1,0 +1,180 @@
+@import url('https://fonts.googleapis.com/css2?family=Playfair+Display:wght@400;500;600;700;800;900&family=Inter:wght@300;400;500;600;700&display=swap');
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* Variables de colores de metales preciosos */
+:root {
+  --gold: #FFD700;
+  --dark-gold: #B8860B;
+  --silver: #C0C0C0;
+  --platinum: #E5E4E2;
+  --black: #1a1a1a;
+  --charcoal: #2d2d2d;
+  --white: #ffffff;
+  --cream: #FFF8DC;
+}
+
+/* Estilos base */
+* {
+  box-sizing: border-box;
+}
+
+body {
+  font-family: 'Inter', sans-serif;
+  background: linear-gradient(135deg, var(--black) 0%, var(--charcoal) 100%);
+  color: var(--white);
+  line-height: 1.6;
+}
+
+/* Tipografía elegante */
+.font-luxury {
+  font-family: 'Playfair Display', serif;
+}
+
+.text-gold {
+  color: var(--gold);
+}
+
+.text-silver {
+  color: var(--silver);
+}
+
+.text-platinum {
+  color: var(--platinum);
+}
+
+.bg-gold {
+  background-color: var(--gold);
+}
+
+.bg-silver {
+  background-color: var(--silver);
+}
+
+.bg-platinum {
+  background-color: var(--platinum);
+}
+
+.border-gold {
+  border-color: var(--gold);
+}
+
+.border-silver {
+  border-color: var(--silver);
+}
+
+.border-platinum {
+  border-color: var(--platinum);
+}
+
+/* Efectos de lujo */
+.luxury-card {
+  background: linear-gradient(145deg, rgba(255, 255, 255, 0.1) 0%, rgba(255, 255, 255, 0.05) 100%);
+  backdrop-filter: blur(10px);
+  border: 1px solid rgba(192, 192, 192, 0.3);
+  box-shadow: 
+    0 8px 32px rgba(0, 0, 0, 0.3),
+    inset 0 1px 0 rgba(255, 255, 255, 0.1);
+}
+
+.luxury-button {
+  background: linear-gradient(135deg, var(--gold) 0%, var(--dark-gold) 100%);
+  color: var(--black);
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  transition: all 0.3s ease;
+  border: 2px solid var(--silver);
+  box-shadow: 
+    0 4px 15px rgba(255, 215, 0, 0.3),
+    inset 0 1px 0 rgba(255, 255, 255, 0.2);
+}
+
+.luxury-button:hover {
+  background: linear-gradient(135deg, var(--dark-gold) 0%, var(--gold) 100%);
+  transform: translateY(-2px);
+  box-shadow: 
+    0 8px 25px rgba(255, 215, 0, 0.4),
+    inset 0 1px 0 rgba(255, 255, 255, 0.3);
+}
+
+.luxury-input {
+  background: rgba(255, 255, 255, 0.1);
+  border: 2px solid rgba(192, 192, 192, 0.3);
+  color: var(--white);
+  backdrop-filter: blur(5px);
+  transition: all 0.3s ease;
+}
+
+.luxury-input:focus {
+  border-color: var(--gold);
+  box-shadow: 0 0 20px rgba(255, 215, 0, 0.3);
+  outline: none;
+}
+
+.luxury-input::placeholder {
+  color: rgba(255, 255, 255, 0.6);
+}
+
+/* Animaciones de lujo */
+@keyframes shimmer {
+  0% { background-position: -200% 0; }
+  100% { background-position: 200% 0; }
+}
+
+.shimmer {
+  background: linear-gradient(
+    90deg,
+    transparent,
+    rgba(255, 215, 0, 0.4),
+    transparent
+  );
+  background-size: 200% 100%;
+  animation: shimmer 2s infinite;
+}
+
+.glow-gold {
+  box-shadow: 0 0 20px rgba(255, 215, 0, 0.5);
+}
+
+.glow-silver {
+  box-shadow: 0 0 20px rgba(192, 192, 192, 0.5);
+}
+
+/* Efectos de texto */
+.text-shadow-gold {
+  text-shadow: 0 2px 4px rgba(255, 215, 0, 0.3);
+}
+
+.text-gradient-gold {
+  background: linear-gradient(135deg, var(--gold) 0%, var(--dark-gold) 100%);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+}
+
+/* Scrollbar personalizada */
+::-webkit-scrollbar {
+  width: 8px;
+}
+
+::-webkit-scrollbar-track {
+  background: var(--charcoal);
+}
+
+::-webkit-scrollbar-thumb {
+  background: linear-gradient(135deg, var(--gold) 0%, var(--dark-gold) 100%);
+  border-radius: 4px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: linear-gradient(135deg, var(--dark-gold) 0%, var(--gold) 100%);
+}
+
+/* Responsive */
+@media (max-width: 768px) {
+  .luxury-card {
+    backdrop-filter: blur(5px);
+  }
+}
