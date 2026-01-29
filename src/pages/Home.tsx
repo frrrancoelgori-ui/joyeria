@@ -1,5 +1,10 @@
 import React, { useState } from 'react';
 import { Search, Filter, MessageCircle, ShoppingCart as CartIcon, Diamond, Star, Award } from 'lucide-react';
+import { Swiper, SwiperSlide } from 'swiper/react';
+import { Pagination, FreeMode } from 'swiper/modules';
+import 'swiper/css';
+import 'swiper/css/pagination';
+
 import { ProductCard } from '../components/ProductCard';
 import { Footer } from '../components/Footer';
 import { useApp } from '../context/AppContext';
@@ -14,18 +19,18 @@ export function Home() {
   const [sortBy, setSortBy] = useState('name');
   const [showFilters, setShowFilters] = useState(false);
 
-  const categories = Array.from(new Set(products.map(p => p.category)));
-  const materials = Array.from(new Set(products.map(p => p.material)));
-  const branches = Array.from(new Set(products.map(p => p.branchName)));
+  const categories = Array.from(new Set(products.map(p => p.category))).sort();
+  const materials = Array.from(new Set(products.map(p => p.material))).sort();
+  const branches = Array.from(new Set(products.map(p => p.branchName))).sort();
 
   const filteredProducts = products
     .filter(product => {
       const matchesSearch =
         product.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
         product.description.toLowerCase().includes(searchTerm.toLowerCase());
-      const matchesCategory = selectedCategory === '' || product.category === selectedCategory;
-      const matchesMaterial = selectedMaterial === '' || product.material === selectedMaterial;
-      const matchesBranch = selectedBranch === '' || product.branchName === selectedBranch;
+      const matchesCategory = !selectedCategory || product.category === selectedCategory;
+      const matchesMaterial = !selectedMaterial || product.material === selectedMaterial;
+      const matchesBranch = !selectedBranch || product.branchName === selectedBranch;
       const matchesPrice =
         (priceRange.min === '' || product.price >= Number(priceRange.min)) &&
         (priceRange.max === '' || product.price <= Number(priceRange.max));
@@ -41,7 +46,7 @@ export function Home() {
         case 'name':
           return a.name.localeCompare(b.name);
         case 'newest':
-          return Number(b.id) - Number(a.id); // funciona si los ids son numéricos como strings
+          return Number(b.id) - Number(a.id);
         default:
           return 0;
       }
@@ -74,65 +79,61 @@ export function Home() {
     message += `*TOTAL: $${total.toLocaleString()}*\n\n`;
     message += 'Me gustaría recibir más información sobre estos productos y conocer las opciones de pago y entrega. ¡Gracias!';
 
-    const phoneNumber = '1234567890'; // ← CAMBIA ESTE NÚMERO POR EL REAL DE LA TIENDA
+    const phoneNumber = '1234567890'; // ← ¡CAMBIAR POR EL NÚMERO REAL DE LA TIENDA!
     const whatsappUrl = `https://wa.me/${phoneNumber}?text=${encodeURIComponent(message)}`;
     window.open(whatsappUrl, '_blank');
   };
 
   return (
-    <div className="min-h-screen bg-luxury-gradient">
+    <div className="min-h-screen bg-gradient-to-b from-charcoal-950 via-charcoal-900 to-black text-white">
       {/* Hero Section */}
-      <div className="relative bg-luxury-gradient overflow-hidden">
-        <div className="absolute inset-0 pointer-events-none">
-          <div className="absolute top-20 left-10 w-32 h-32 bg-gold-500 rounded-full opacity-10 blur-3xl"></div>
-          <div className="absolute bottom-20 right-10 w-40 h-40 bg-silver-500 rounded-full opacity-10 blur-3xl"></div>
-          <div className="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 w-60 h-60 bg-platinum-500 rounded-full opacity-5 blur-3xl"></div>
-        </div>
+      <div className="relative overflow-hidden">
+        <div className="absolute inset-0 pointer-events-none bg-[radial-gradient(circle_at_20%_30%,rgba(234,179,8,0.08),transparent_40%),radial-gradient(circle_at_80%_70%,rgba(234,179,8,0.05),transparent_50%)]" />
 
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-16 relative z-10">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-16 md:py-24 relative z-10">
           <div className="text-center">
-            <div className="flex items-center justify-center mb-6">
-              <Diamond className="h-12 w-12 text-gold-500 mr-4 animate-pulse" />
-              <h1 className="font-luxury text-4xl md:text-6xl font-bold text-gradient-gold text-shadow-gold">
+            <div className="flex items-center justify-center mb-6 gap-3 md:gap-5">
+              <Diamond className="h-10 w-10 md:h-14 md:w-14 text-gold-500 animate-pulse" />
+              <h1 className="font-luxury text-5xl md:text-7xl font-bold bg-gradient-to-r from-gold-400 via-gold-500 to-gold-300 bg-clip-text text-transparent drop-shadow-lg">
                 Diamante Real
               </h1>
-              <Diamond className="h-12 w-12 text-gold-500 ml-4 animate-pulse" />
+              <Diamond className="h-10 w-10 md:h-14 md:w-14 text-gold-500 animate-pulse" />
             </div>
 
-            <h2 className="text-2xl md:text-3xl font-luxury text-platinum-200 mb-4">
-              Joyería de Lujo desde 1998
+            <h2 className="text-2xl md:text-4xl font-luxury text-platinum-200 mb-5 tracking-wide">
+              Joyería de Lujo • Desde 1998
             </h2>
 
-            <p className="text-lg md:text-xl text-platinum-300 mb-8 max-w-3xl mx-auto">
-              Descubre nuestra exclusiva colección de joyas premium. Anillos de compromiso, collares de diamantes y
-              piezas personalizadas con certificación internacional.
+            <p className="text-base md:text-xl text-platinum-300 max-w-3xl mx-auto mb-10 leading-relaxed">
+              Anillos de compromiso, collares de diamantes, piezas únicas y personalizadas con certificación internacional.
             </p>
 
-            {/* Badges de calidad */}
-            <div className="flex flex-wrap justify-center gap-4 mb-8">
-              <div className="flex items-center bg-black bg-opacity-30 px-4 py-2 rounded-full border border-gold-500">
+            {/* Sellos de confianza */}
+            <div className="flex flex-wrap justify-center gap-4 md:gap-6 mb-10">
+              <div className="flex items-center bg-black/40 backdrop-blur-sm px-4 py-2.5 rounded-full border border-gold-600/60">
                 <Award className="h-5 w-5 text-gold-500 mr-2" />
-                <span className="text-platinum-200 text-sm">Certificación GIA</span>
+                <span className="text-sm text-platinum-200">Certificación GIA</span>
               </div>
-              <div className="flex items-center bg-black bg-opacity-30 px-4 py-2 rounded-full border border-silver-500">
+              <div className="flex items-center bg-black/40 backdrop-blur-sm px-4 py-2.5 rounded-full border border-silver-600/50">
                 <Star className="h-5 w-5 text-silver-400 mr-2" />
-                <span className="text-platinum-200 text-sm">25+ Años de Experiencia</span>
+                <span className="text-sm text-platinum-200">+25 años</span>
               </div>
-              <div className="flex items-center bg-black bg-opacity-30 px-4 py-2 rounded-full border border-platinum-500">
+              <div className="flex items-center bg-black/40 backdrop-blur-sm px-4 py-2.5 rounded-full border border-platinum-600/50">
                 <Diamond className="h-5 w-5 text-platinum-400 mr-2" />
-                <span className="text-platinum-200 text-sm">Piezas Personalizadas</span>
+                <span className="text-sm text-platinum-200">Personalización</span>
               </div>
             </div>
 
-            <div className="max-w-2xl mx-auto">
+            {/* Búsqueda */}
+            <div className="max-w-xl mx-auto">
               <div className="relative">
-                <Search className="absolute left-4 top-1/2 transform -translate-y-1/2 text-platinum-400 h-6 w-6" />
+                <Search className="absolute left-4 top-1/2 -translate-y-1/2 h-6 w-6 text-platinum-400" />
                 <input
                   type="text"
-                  placeholder="Buscar anillos, collares, aretes..."
+                  placeholder="Buscar joyas, anillos, diamantes..."
                   value={searchTerm}
-                  onChange={(e) => setSearchTerm(e.target.value)}
-                  className="w-full pl-12 pr-6 py-4 luxury-input rounded-xl text-lg font-medium focus:outline-none focus:ring-2 focus:ring-gold-500"
+                  onChange={e => setSearchTerm(e.target.value)}
+                  className="w-full pl-12 pr-5 py-4 bg-charcoal-800/60 border border-platinum-700/40 rounded-xl text-lg focus:outline-none focus:border-gold-500 focus:ring-1 focus:ring-gold-500/50 transition-all"
                 />
               </div>
             </div>
@@ -140,120 +141,99 @@ export function Home() {
         </div>
       </div>
 
-      {/* Sección de Características */}
-      <div className="py-16 bg-charcoal-900 border-y-2 border-gold-500">
+      {/* Características */}
+      <section className="py-16 md:py-20 border-y border-gold-900/30 bg-charcoal-950/70">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
-            <div className="text-center">
-              <div className="w-20 h-20 bg-gold-gradient rounded-full flex items-center justify-center mx-auto mb-4 glow-gold">
-                <Diamond className="h-10 w-10 text-charcoal-900" />
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-8 md:gap-12">
+            {[
+              { icon: Diamond, title: "Diamantes Certificados", text: "Certificación GIA internacional en cada piedra", color: "gold" },
+              { icon: Award, title: "Garantía de por Vida", text: "Mantenimiento y ajustes gratuitos de por vida", color: "silver" },
+              { icon: Star, title: "Diseño 100% Personalizado", text: "Tu idea, nuestro arte artesanal", color: "platinum" },
+            ].map((item, i) => (
+              <div key={i} className="text-center group">
+                <div className={`w-20 h-20 mx-auto mb-6 rounded-full flex items-center justify-center bg-gradient-to-br from-${item.color}-600/20 to-${item.color}-900/10 border border-${item.color}-700/40 group-hover:scale-110 transition-transform duration-300`}>
+                  <item.icon className={`h-10 w-10 text-${item.color}-400`} />
+                </div>
+                <h3 className="font-luxury text-xl text-white mb-3">{item.title}</h3>
+                <p className="text-platinum-300 text-sm md:text-base">{item.text}</p>
               </div>
-              <h3 className="font-luxury text-xl font-semibold text-gold-500 mb-2">Diamantes Certificados</h3>
-              <p className="text-platinum-300">Todos nuestros diamantes cuentan con certificación GIA internacional</p>
-            </div>
-            <div className="text-center">
-              <div className="w-20 h-20 bg-silver-gradient rounded-full flex items-center justify-center mx-auto mb-4 glow-silver">
-                <Award className="h-10 w-10 text-charcoal-900" />
-              </div>
-              <h3 className="font-luxury text-xl font-semibold text-silver-400 mb-2">Garantía de por Vida</h3>
-              <p className="text-platinum-300">Garantía completa en manufactura y mantenimiento gratuito</p>
-            </div>
-            <div className="text-center">
-              <div className="w-20 h-20 bg-platinum-gradient rounded-full flex items-center justify-center mx-auto mb-4 glow-platinum">
-                <Star className="h-10 w-10 text-charcoal-900" />
-              </div>
-              <h3 className="font-luxury text-xl font-semibold text-platinum-400 mb-2">Diseño Personalizado</h3>
-              <p className="text-platinum-300">Creamos piezas únicas según tus especificaciones y gustos</p>
-            </div>
+            ))}
           </div>
         </div>
-      </div>
+      </section>
 
       {/* Botón flotante WhatsApp */}
       {cart.length > 0 && (
-        <div className="fixed bottom-6 right-6 z-50">
+        <div className="fixed bottom-6 right-6 z-50 group">
           <button
             onClick={sendToWhatsApp}
-            className="luxury-button p-4 rounded-full shadow-luxury flex items-center justify-center space-x-2 animate-pulse hover:scale-105 transition-transform"
+            className="relative luxury-button p-4 md:p-5 rounded-full shadow-2xl flex items-center justify-center hover:scale-110 active:scale-95 transition-all duration-300"
           >
-            <MessageCircle className="h-6 w-6" />
-            <span className="hidden sm:inline font-medium">Consultar por WhatsApp ({cart.length})</span>
+            <MessageCircle className="h-7 w-7" />
+            <div className="absolute -top-2 -right-2 bg-red-600 text-white text-xs font-bold rounded-full min-w-[24px] h-6 flex items-center justify-center px-1.5 shadow-lg">
+              {cart.length}
+            </div>
           </button>
+          <div className="absolute bottom-full right-0 mb-3 opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none">
+            <div className="bg-charcoal-900 text-platinum-200 text-sm px-4 py-2 rounded-lg whitespace-nowrap shadow-xl">
+              Consultar carrito por WhatsApp
+            </div>
+          </div>
         </div>
       )}
 
       {/* Filtros y Productos */}
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-        <div className="luxury-card p-6 mb-8 rounded-xl">
-          <div className="flex items-center space-x-3 mb-4">
-            <Filter className="h-5 w-5 text-gold-500" />
-            <span className="text-white font-medium font-luxury">Filtros avanzados</span>
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-10 md:py-16">
+        <div className="luxury-card p-5 md:p-7 mb-8 rounded-2xl border border-platinum-900/20">
+          <div className="flex items-center justify-between flex-wrap gap-4">
+            <div className="flex items-center gap-3">
+              <Filter className="h-6 w-6 text-gold-500" />
+              <span className="font-luxury text-lg md:text-xl text-white">Filtros</span>
+            </div>
             <button
               onClick={() => setShowFilters(!showFilters)}
-              className="text-gold-500 hover:text-gold-400 font-medium transition-colors"
+              className="luxury-button px-5 py-2.5 text-sm md:text-base"
             >
-              {showFilters ? 'Ocultar filtros' : 'Mostrar filtros'}
+              {showFilters ? 'Ocultar' : 'Mostrar filtros'}
             </button>
           </div>
 
           {showFilters && (
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4 mt-4">
-              <select
-                value={selectedCategory}
-                onChange={(e) => setSelectedCategory(e.target.value)}
-                className="luxury-input px-3 py-2 rounded-lg"
-              >
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4 mt-6">
+              <select value={selectedCategory} onChange={e => setSelectedCategory(e.target.value)} className="luxury-input py-3">
                 <option value="">Todas las categorías</option>
-                {categories.map(cat => (
-                  <option key={cat} value={cat}>{cat}</option>
-                ))}
+                {categories.map(c => <option key={c} value={c}>{c}</option>)}
               </select>
 
-              <select
-                value={selectedMaterial}
-                onChange={(e) => setSelectedMaterial(e.target.value)}
-                className="luxury-input px-3 py-2 rounded-lg"
-              >
+              <select value={selectedMaterial} onChange={e => setSelectedMaterial(e.target.value)} className="luxury-input py-3">
                 <option value="">Todos los materiales</option>
-                {materials.map(mat => (
-                  <option key={mat} value={mat}>{mat}</option>
-                ))}
+                {materials.map(m => <option key={m} value={m}>{m}</option>)}
               </select>
 
-              <select
-                value={selectedBranch}
-                onChange={(e) => setSelectedBranch(e.target.value)}
-                className="luxury-input px-3 py-2 rounded-lg"
-              >
+              <select value={selectedBranch} onChange={e => setSelectedBranch(e.target.value)} className="luxury-input py-3">
                 <option value="">Todas las sucursales</option>
-                {branches.map(branch => (
-                  <option key={branch} value={branch}>{branch}</option>
-                ))}
+                {branches.map(b => <option key={b} value={b}>{b}</option>)}
               </select>
 
-              <div className="flex space-x-2">
+              <div className="flex gap-3">
                 <input
                   type="number"
-                  placeholder="Precio mín"
+                  placeholder="Mínimo"
                   value={priceRange.min}
-                  onChange={(e) => setPriceRange({ ...priceRange, min: e.target.value })}
-                  className="w-full luxury-input px-3 py-2 rounded-lg"
+                  onChange={e => setPriceRange(p => ({ ...p, min: e.target.value }))}
+                  className="luxury-input py-3 w-full"
                 />
                 <input
                   type="number"
-                  placeholder="Precio máx"
+                  placeholder="Máximo"
                   value={priceRange.max}
-                  onChange={(e) => setPriceRange({ ...priceRange, max: e.target.value })}
-                  className="w-full luxury-input px-3 py-2 rounded-lg"
+                  onChange={e => setPriceRange(p => ({ ...p, max: e.target.value }))}
+                  className="luxury-input py-3 w-full"
                 />
               </div>
 
-              <select
-                value={sortBy}
-                onChange={(e) => setSortBy(e.target.value)}
-                className="luxury-input px-3 py-2 rounded-lg"
-              >
-                <option value="name">Ordenar por nombre</option>
+              <select value={sortBy} onChange={e => setSortBy(e.target.value)} className="luxury-input py-3">
+                <option value="name">Nombre A–Z</option>
                 <option value="price-low">Precio: menor → mayor</option>
                 <option value="price-high">Precio: mayor → menor</option>
                 <option value="newest">Más recientes</option>
@@ -268,40 +248,63 @@ export function Home() {
                   setSortBy('name');
                   setSearchTerm('');
                 }}
-                className="luxury-button px-4 py-2 rounded-lg hover:opacity-90 transition-opacity"
+                className="luxury-button py-3 bg-red-900/40 hover:bg-red-900/60 border-red-700/50"
               >
-                Limpiar todo
+                Limpiar filtros
               </button>
             </div>
           )}
         </div>
 
         {/* Resumen de resultados */}
-        <div className="flex flex-col sm:flex-row justify-between items-center mb-6 gap-4">
-          <p className="text-platinum-300 font-medium">
-            Mostrando <span className="text-gold-500 font-bold">{filteredProducts.length}</span> de{' '}
-            <span className="text-gold-500 font-bold">{products.length}</span> productos
+        <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-8 gap-4">
+          <p className="text-platinum-300">
+            <span className="text-gold-400 font-bold text-xl">{filteredProducts.length}</span> productos encontrados
           </p>
           {cart.length > 0 && (
-            <div className="flex items-center space-x-2 text-gold-500">
+            <div className="flex items-center gap-2 text-gold-500 font-medium">
               <CartIcon className="h-5 w-5" />
-              <span className="font-medium">{cart.length} en carrito</span>
+              {cart.length} en carrito
             </div>
           )}
         </div>
 
-        {/* Grid de productos */}
+        {/* Productos - Carrusel en móvil + Grid en desktop */}
         {filteredProducts.length > 0 ? (
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6 md:gap-8">
-            {filteredProducts.map(product => (
-              <ProductCard key={product.id} product={product} />
-            ))}
-          </div>
+          <>
+            {/* Carrusel solo en móvil (sm y menor) */}
+            <div className="block sm:hidden">
+              <Swiper
+                modules={[Pagination, FreeMode]}
+                spaceBetween={20}
+                slidesPerView={1.2}
+                freeMode={{ enabled: true, momentumRatio: 0.6 }}
+                grabCursor={true}
+                pagination={{ clickable: true, dynamicBullets: true }}
+                className="pb-12 px-4"
+              >
+                {filteredProducts.map(product => (
+                  <SwiperSlide key={product.id} className="!w-[82%]">
+                    <ProductCard product={product} showAddToCart={true} />
+                  </SwiperSlide>
+                ))}
+              </Swiper>
+            </div>
+
+            {/* Grid en pantallas medianas y grandes */}
+            <div className="hidden sm:grid sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-5 gap-6 md:gap-8">
+              {filteredProducts.map(product => (
+                <ProductCard key={product.id} product={product} showAddToCart={true} />
+              ))}
+            </div>
+          </>
         ) : (
-          <div className="text-center py-20">
-            <div className="text-gold-500 text-7xl mb-6">💎</div>
-            <h3 className="font-luxury text-3xl text-white mb-3">No encontramos resultados</h3>
-            <p className="text-platinum-400 text-lg">Prueba ajustando los filtros o buscando otro término</p>
+          <div className="text-center py-24">
+            <div className="text-8xl mb-6 opacity-70">💎</div>
+            <h3 className="font-luxury text-4xl text-gold-400 mb-4">Sin resultados</h3>
+            <p className="text-platinum-400 text-lg max-w-md mx-auto">
+              Prueba con otros términos o limpia los filtros para ver toda la colección
+            </p>
           </div>
         )}
       </div>
