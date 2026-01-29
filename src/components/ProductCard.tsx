@@ -12,7 +12,26 @@ export function ProductCard({ product, showAddToCart = true }: ProductCardProps)
   const { addToCart } = useApp();
 
   const handleAddToCart = () => {
-    addToCart(product);
+    if (!product || product.stock === 0) {
+      return;
+    }
+
+    try {
+      console.log('Intentando agregar al carrito:', {
+        id: product.id,
+        name: product.name,
+        price: product.price,
+        stock: product.stock
+      });
+
+      addToCart(product);
+
+      console.log('addToCart ejecutado sin error inmediato');
+    } catch (error) {
+      console.error('Error al ejecutar addToCart:', error);
+      // Puedes mostrar una notificación al usuario si quieres:
+      // alert('Hubo un problema al agregar el producto. Revisa la consola.');
+    }
   };
 
   return (
@@ -67,7 +86,7 @@ export function ProductCard({ product, showAddToCart = true }: ProductCardProps)
 
       {/* Contenido */}
       <div className="p-5 sm:p-6 flex flex-col flex-grow">
-        <div className="flex items-start justify-between gap-3 mb-3">
+        <div className="flex items-start justify-between gap-3 mb-3 group">
           <h3 className="font-luxury text-lg font-semibold text-white line-clamp-2 flex-1 group-hover:text-gold-400 transition-colors">
             {product.name}
           </h3>
@@ -100,11 +119,11 @@ export function ProductCard({ product, showAddToCart = true }: ProductCardProps)
         <div className="flex items-end justify-between mt-auto">
           <div className="flex flex-col">
             <span className="text-2xl font-bold text-gold-500 font-luxury">
-              ${product.price.toLocaleString()}
+              ${product.price?.toLocaleString() ?? '—'}
             </span>
             <div className="flex items-center text-xs text-platinum-400 mt-1">
               <Package className="h-4 w-4 mr-1.5 text-silver-400" />
-              Stock: {product.stock}
+              Stock: {product.stock ?? '?'}
             </div>
             {product.isCustomizable && product.craftingTime && (
               <div className="text-xs text-platinum-400 mt-0.5">
