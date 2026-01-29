@@ -12,13 +12,13 @@ export function Footer() {
     {
       name: 'Diamante Real Plaza Norte',
       address: 'Centro Comercial Plaza Norte, Local 205',
-      phone: '+1 (555) 234-5678',
+      phone: ' (569) 41228089',
       hours: 'Lun-Sáb: 10:00-21:00, Dom: 12:00-20:00'
     },
     {
       name: 'Diamante Real Boutique',
       address: 'Zona Rosa, Calle Exclusiva 456',
-      phone: '+1 (555) 345-6789',
+      phone: '(569)41228089',
       hours: 'Lun-Sáb: 11:00-20:00, Dom: Cerrado'
     }
   ];
@@ -130,7 +130,7 @@ export function Footer() {
                 <Phone className="h-5 w-5 text-gold-500 mr-3" />
                 <div>
                   <p className="text-white font-medium">Línea de Atención</p>
-                  <p className="text-platinum-300">+1 (56) 941228089</p>
+                  <p className="text-platinum-300"> (569) 41228089</p>
                 </div>
               </div>
               <div className="flex items-start">
