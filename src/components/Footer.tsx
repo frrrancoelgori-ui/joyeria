@@ -176,7 +176,7 @@ export function Footer() {
               <div className="w-16 h-16 bg-silver-gradient rounded-full flex items-center justify-center mx-auto mb-3">
                 <Clock className="h-8 w-8 text-charcoal-900" />
               </div>
-              <h4 className="font-semibold text-white mb-2">Garantía de por Vida</h4>
+              <h4 className="font-semibold text-white mb-2">Garantía asegurada</h4>
               <p className="text-platinum-300 text-sm">
                 Garantía completa en manufactura y mantenimiento gratuito
               </p>
