@@ -31,7 +31,7 @@ export function Cart() {
     message += `*TOTAL: $${total.toLocaleString()}*\n\n`;
     message += 'Me gustaría recibir más información sobre estos productos y conocer las opciones de pago y entrega. ¡Gracias!';
     
-    const phoneNumber = '1234567890'; // Reemplazar con el número real de WhatsApp
+    const phoneNumber = '941228089'; // Reemplazar con el número  de WhatsApp
     const whatsappUrl = `https://wa.me/${phoneNumber}?text=${encodeURIComponent(message)}`;
     window.open(whatsappUrl, '_blank');
   };
