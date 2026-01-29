@@ -141,26 +141,7 @@ export function Home() {
         </div>
       </div>
 
-      {/* Características */}
-      <section className="py-16 md:py-20 border-y border-gold-900/30 bg-charcoal-950/70">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-8 md:gap-12">
-            {[
-              { icon: Diamond, title: "Diamantes Certificados", text: "Certificación GIA internacional en cada piedra", color: "gold" },
-              { icon: Award, title: "Garantía de por Vida", text: "Mantenimiento y ajustes gratuitos de por vida", color: "silver" },
-              { icon: Star, title: "Diseño 100% Personalizado", text: "Tu idea, nuestro arte artesanal", color: "platinum" },
-            ].map((item, i) => (
-              <div key={i} className="text-center group">
-                <div className={`w-20 h-20 mx-auto mb-6 rounded-full flex items-center justify-center bg-gradient-to-br from-${item.color}-600/20 to-${item.color}-900/10 border border-${item.color}-700/40 group-hover:scale-110 transition-transform duration-300`}>
-                  <item.icon className={`h-10 w-10 text-${item.color}-400`} />
-                </div>
-                <h3 className="font-luxury text-xl text-white mb-3">{item.title}</h3>
-                <p className="text-platinum-300 text-sm md:text-base">{item.text}</p>
-              </div>
-            ))}
-          </div>
-        </div>
-      </section>
+     
 
       {/* Botón flotante WhatsApp */}
       {cart.length > 0 && (
