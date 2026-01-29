@@ -79,7 +79,7 @@ export function Home() {
     message += `*TOTAL: $${total.toLocaleString()}*\n\n`;
     message += 'Me gustaría recibir más información sobre estos productos y conocer las opciones de pago y entrega. ¡Gracias!';
 
-    const phoneNumber = '1234567890'; // ← ¡CAMBIAR POR EL NÚMERO REAL DE LA TIENDA!
+    const phoneNumber = '+56941228089'; // ← ¡CAMBIAR POR EL NÚMERO REAL DE LA TIENDA!
     const whatsappUrl = `https://wa.me/${phoneNumber}?text=${encodeURIComponent(message)}`;
     window.open(whatsappUrl, '_blank');
   };
