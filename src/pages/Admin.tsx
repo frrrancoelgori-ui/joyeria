@@ -124,10 +124,10 @@ export function Admin() {
         {/* Header */}
         <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-6 sm:mb-8 gap-4">
           <div>
-            <h1 className="font-luxury text-2xl sm:text-3xl md:text-4xl font-bold text-gradient-gold">
+            <h1 className="font-luxury text-2xl sm:text-3xl md:text-4xl font-semibold text-gradient-gold tracking-wide">
               Gestión de Productos
             </h1>
-            <p className="text-platinum-400 text-sm mt-1">
+            <p className="text-platinum-400 text-sm mt-1 font-light tracking-wide">
               Administra el catálogo de joyería
             </p>
           </div>
@@ -403,7 +403,7 @@ export function Admin() {
         <div className="fixed inset-0 bg-black/70 backdrop-blur-sm flex items-end sm:items-center justify-center z-50 p-0 sm:p-4">
           <div className="bg-charcoal-900 border border-platinum-700/30 rounded-t-2xl sm:rounded-2xl shadow-2xl max-w-2xl w-full max-h-[92vh] sm:max-h-[90vh] overflow-y-auto">
             <div className="sticky top-0 bg-charcoal-900 border-b border-platinum-700/30 px-4 sm:px-6 py-4 flex items-center justify-between z-10">
-              <h2 className="font-luxury text-xl sm:text-2xl font-bold text-gradient-gold">
+              <h2 className="font-luxury text-xl sm:text-2xl font-semibold text-gradient-gold tracking-wide">
                 {editingProduct ? 'Editar Producto' : 'Nuevo Producto'}
               </h2>
               <button

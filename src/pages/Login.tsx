@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { Navigate } from 'react-router-dom';
 import { motion } from 'framer-motion';
-import { Lock, Eye, EyeOff } from 'lucide-react';
+import { Lock, Eye, EyeOff, Diamond } from 'lucide-react';
 import { useApp } from '../context/AppContext';
 import Swal from 'sweetalert2';
 
@@ -20,11 +20,10 @@ export function Login() {
     e.preventDefault();
     setIsLoading(true);
 
-    // Simular delay de autenticación
     await new Promise(resolve => setTimeout(resolve, 1000));
 
     const success = loginWithCredentials(username, password);
-    
+
     if (success) {
       Swal.fire({
         title: '¡Bienvenido!',
@@ -38,54 +37,60 @@ export function Login() {
         title: 'Acceso denegado',
         text: 'Contraseña incorrecta. Inténtalo de nuevo.',
         icon: 'error',
-        confirmButtonColor: '#3B82F6'
+        confirmButtonColor: '#D4AF37'
       });
       setUsername('');
       setPassword('');
     }
-    
+
     setIsLoading(false);
   };
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100 flex items-center justify-center px-4">
+    <div className="min-h-screen bg-gradient-to-br from-charcoal-950 via-charcoal-900 to-black flex items-center justify-center px-4 py-8">
+      {/* Decorative glow */}
+      <div className="absolute top-1/4 left-1/2 -translate-x-1/2 w-96 h-96 bg-gold-500/10 rounded-full blur-3xl pointer-events-none" />
+
       <motion.div
         initial={{ opacity: 0, y: 20 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ duration: 0.6 }}
-        className="bg-white p-8 rounded-2xl shadow-xl max-w-md w-full"
+        className="relative luxury-card p-8 sm:p-10 rounded-2xl max-w-md w-full"
       >
         <div className="text-center mb-8">
           <motion.div
-            initial={{ scale: 0 }}
-            animate={{ scale: 1 }}
+            initial={{ scale: 0, rotate: -180 }}
+            animate={{ scale: 1, rotate: 0 }}
             transition={{ delay: 0.2, type: "spring", stiffness: 200 }}
-            className="bg-blue-100 w-16 h-16 rounded-full flex items-center justify-center mx-auto mb-4"
+            className="w-16 h-16 mx-auto mb-4 flex items-center justify-center"
           >
-            <Lock className="h-8 w-8 text-blue-600" />
+            <Diamond className="h-10 w-10 text-gold-400" />
           </motion.div>
-          <h1 className="text-2xl font-bold text-gray-900 mb-2">Panel de Administración</h1>
-          <p className="text-gray-600">Ingresa tu contraseña para continuar</p>
-          <p className="text-sm text-gray-400 mt-2">Usuario: admin | Contraseña: admin123</p>
+          <h1 className="font-luxury text-3xl font-semibold text-gradient-gold tracking-wide mb-2">
+            Diamante Real
+          </h1>
+          <div className="luxury-divider w-20 mx-auto mb-4" />
+          <p className="text-platinum-300 font-light tracking-wide">Panel de Administración</p>
+          <p className="text-platinum-500 text-sm mt-2 font-light">Ingresa tus credenciales para continuar</p>
         </div>
 
-        <form onSubmit={handleSubmit} className="space-y-6">
+        <form onSubmit={handleSubmit} className="space-y-5">
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">
+            <label className="block text-sm font-medium text-platinum-300 mb-2 tracking-wide">
               Usuario
             </label>
             <input
               type="text"
               value={username}
               onChange={(e) => setUsername(e.target.value)}
-              className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all"
+              className="luxury-input w-full py-3 px-4 rounded-lg"
               placeholder="Ingresa tu usuario"
               required
             />
           </div>
-          
+
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">
+            <label className="block text-sm font-medium text-platinum-300 mb-2 tracking-wide">
               Contraseña
             </label>
             <div className="relative">
@@ -93,14 +98,14 @@ export function Login() {
                 type={showPassword ? 'text' : 'password'}
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
-                className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all"
+                className="luxury-input w-full py-3 px-4 pr-12 rounded-lg"
                 placeholder="Ingresa tu contraseña"
                 required
               />
               <button
                 type="button"
                 onClick={() => setShowPassword(!showPassword)}
-                className="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-400 hover:text-gray-600 transition-colors"
+                className="absolute right-3 top-1/2 transform -translate-y-1/2 text-platinum-400 hover:text-gold-400 transition-colors"
               >
                 {showPassword ? <EyeOff className="h-5 w-5" /> : <Eye className="h-5 w-5" />}
               </button>
@@ -112,13 +117,13 @@ export function Login() {
             whileTap={{ scale: 0.98 }}
             type="submit"
             disabled={isLoading}
-            className="w-full bg-blue-600 text-white py-3 rounded-lg hover:bg-blue-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center space-x-2"
+            className="luxury-button w-full py-3 rounded-lg flex items-center justify-center space-x-2 disabled:opacity-50 disabled:cursor-not-allowed"
           >
             {isLoading ? (
-              <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-white"></div>
+              <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-charcoal-950"></div>
             ) : (
               <>
-                <Lock className="h-5 w-5" />
+                <Lock className="h-4 w-4" />
                 <span>Acceder</span>
               </>
             )}
@@ -129,7 +134,7 @@ export function Login() {
           <motion.a
             whileHover={{ scale: 1.05 }}
             href="/"
-            className="text-blue-600 hover:text-blue-700 transition-colors text-sm"
+            className="text-platinum-400 hover:text-gold-400 transition-colors text-sm font-light tracking-wide"
           >
             ← Volver a la tienda
           </motion.a>

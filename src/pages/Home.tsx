@@ -94,13 +94,13 @@ export function Home() {
           <div className="text-center">
             <div className="flex items-center justify-center mb-6 gap-3 md:gap-5">
               <Diamond className="h-10 w-10 md:h-14 md:w-14 text-gold-500 animate-pulse" />
-              <h1 className="font-luxury text-5xl md:text-7xl font-bold bg-gradient-to-r from-gold-400 via-gold-500 to-gold-300 bg-clip-text text-transparent drop-shadow-lg">
+              <h1 className="font-luxury text-5xl md:text-7xl font-semibold text-gradient-gold tracking-wide drop-shadow-lg">
                 Diamante Real
               </h1>
               <Diamond className="h-10 w-10 md:h-14 md:w-14 text-gold-500 animate-pulse" />
             </div>
 
-            <h2 className="text-2xl md:text-4xl font-luxury text-platinum-200 mb-5 tracking-wide">
+            <h2 className="text-xl md:text-3xl font-luxury text-platinum-200 mb-5 tracking-wide font-light">
               Joyería de Lujo • Desde 1998
             </h2>
 
@@ -240,7 +240,7 @@ export function Home() {
         {/* Resumen de resultados */}
         <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-8 gap-4">
           <p className="text-platinum-300">
-            <span className="text-gold-400 font-bold text-xl">{filteredProducts.length}</span> productos encontrados
+            <span className="text-gold-400 font-semibold text-xl font-luxury">{filteredProducts.length}</span> productos encontrados
           </p>
           {cart.length > 0 && (
             <div className="flex items-center gap-2 text-gold-500 font-medium">
@@ -282,7 +282,7 @@ export function Home() {
         ) : (
           <div className="text-center py-24">
             <div className="text-8xl mb-6 opacity-70">💎</div>
-            <h3 className="font-luxury text-4xl text-gold-400 mb-4">Sin resultados</h3>
+            <h3 className="font-luxury text-3xl text-gold-400 mb-4 font-semibold tracking-wide">Sin resultados</h3>
             <p className="text-platinum-400 text-lg max-w-md mx-auto">
               Prueba con otros términos o limpia los filtros para ver toda la colección
             </p>
