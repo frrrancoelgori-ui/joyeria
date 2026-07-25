@@ -3,7 +3,6 @@ import { Navigate } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import { Lock, Eye, EyeOff, Diamond } from 'lucide-react';
 import { useApp } from '../context/AppContext';
-import Swal from 'sweetalert2';
 
 export function Login() {
   const { isAuthenticated, loginWithCredentials } = useApp();
@@ -19,36 +18,12 @@ export function Login() {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setIsLoading(true);
-
-    await new Promise(resolve => setTimeout(resolve, 1000));
-
-    const success = loginWithCredentials(username, password);
-
-    if (success) {
-      Swal.fire({
-        title: '¡Bienvenido!',
-        text: 'Acceso concedido al panel de administración',
-        icon: 'success',
-        timer: 1500,
-        showConfirmButton: false
-      });
-    } else {
-      Swal.fire({
-        title: 'Acceso denegado',
-        text: 'Contraseña incorrecta. Inténtalo de nuevo.',
-        icon: 'error',
-        confirmButtonColor: '#D4AF37'
-      });
-      setUsername('');
-      setPassword('');
-    }
-
+    await loginWithCredentials(username, password);
     setIsLoading(false);
   };
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-charcoal-950 via-charcoal-900 to-black flex items-center justify-center px-4 py-8">
-      {/* Decorative glow */}
       <div className="absolute top-1/4 left-1/2 -translate-x-1/2 w-96 h-96 bg-gold-500/10 rounded-full blur-3xl pointer-events-none" />
 
       <motion.div
@@ -86,6 +61,7 @@ export function Login() {
               className="luxury-input w-full py-3 px-4 rounded-lg"
               placeholder="Ingresa tu usuario"
               required
+              autoComplete="username"
             />
           </div>
 
@@ -101,6 +77,7 @@ export function Login() {
                 className="luxury-input w-full py-3 px-4 pr-12 rounded-lg"
                 placeholder="Ingresa tu contraseña"
                 required
+                autoComplete="current-password"
               />
               <button
                 type="button"

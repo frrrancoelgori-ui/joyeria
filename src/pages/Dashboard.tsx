@@ -191,20 +191,18 @@ export function Dashboard() {
     ],
   };
 
-  const handleCredentialsSubmit = (e: React.FormEvent) => {
+  const handleCredentialsSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (credentialsFormData.newPassword !== credentialsFormData.confirmPassword) {
       Swal.fire({ title: 'Error', text: 'Las contraseñas no coinciden', icon: 'error' });
       return;
     }
-    const success = changeCredentials(
+    const success = await changeCredentials(
       credentialsFormData.currentPassword,
       credentialsFormData.newUsername,
       credentialsFormData.newPassword
     );
-    if (!success) {
-      Swal.fire({ title: 'Error', text: 'Contraseña actual incorrecta', icon: 'error' });
-    } else {
+    if (success) {
       setCredentialsFormData({
         currentPassword: '', newUsername: '', newPassword: '', confirmPassword: '',
       });

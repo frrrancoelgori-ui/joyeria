@@ -48,7 +48,7 @@ export function Admin() {
     return matchesSearch && matchesCategory && matchesBranch;
   });
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
 
     const branch = branches.find(b => b.id === formData.branchId);
@@ -71,9 +71,9 @@ export function Admin() {
     };
 
     if (editingProduct) {
-      updateProduct({ ...productData, id: editingProduct.id });
+      await updateProduct({ ...productData, id: editingProduct.id });
     } else {
-      addProduct(productData);
+      await addProduct(productData);
     }
 
     resetForm();

@@ -8,6 +8,7 @@ import 'swiper/css/pagination';
 import { ProductCard } from '../components/ProductCard';
 import { Footer } from '../components/Footer';
 import { useApp } from '../context/AppContext';
+import { ScrollReveal, StaggerGroup, StaggerItem, Parallax } from '../components/ScrollReveal';
 
 export function Home() {
   const { products, cart } = useApp();
@@ -90,8 +91,10 @@ export function Home() {
       <div className="relative overflow-hidden">
         <div className="absolute inset-0 pointer-events-none bg-[radial-gradient(circle_at_20%_30%,rgba(234,179,8,0.08),transparent_40%),radial-gradient(circle_at_80%_70%,rgba(234,179,8,0.05),transparent_50%)]" />
 
+        <Parallax offset={40}>
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-16 md:py-24 relative z-10">
           <div className="text-center">
+            <ScrollReveal delay={0.1}>
             <div className="flex items-center justify-center mb-6 gap-3 md:gap-5">
               <Diamond className="h-10 w-10 md:h-14 md:w-14 text-gold-500 animate-pulse" />
               <h1 className="font-luxury text-5xl md:text-7xl font-semibold text-gradient-gold tracking-wide drop-shadow-lg">
@@ -99,7 +102,9 @@ export function Home() {
               </h1>
               <Diamond className="h-10 w-10 md:h-14 md:w-14 text-gold-500 animate-pulse" />
             </div>
+            </ScrollReveal>
 
+            <ScrollReveal delay={0.25}>
             <h2 className="text-xl md:text-3xl font-luxury text-platinum-200 mb-5 tracking-wide font-light">
               Joyería de Lujo • Desde 1998
             </h2>
@@ -107,8 +112,10 @@ export function Home() {
             <p className="text-base md:text-xl text-platinum-300 max-w-3xl mx-auto mb-10 leading-relaxed">
               Anillos de compromiso, collares de diamantes, piezas únicas y personalizadas con certificación internacional.
             </p>
+            </ScrollReveal>
 
             {/* Sellos de confianza */}
+            <ScrollReveal delay={0.4}>
             <div className="flex flex-wrap justify-center gap-4 md:gap-6 mb-10">
               <div className="flex items-center bg-black/40 backdrop-blur-sm px-4 py-2.5 rounded-full border border-gold-600/60">
                 <Award className="h-5 w-5 text-gold-500 mr-2" />
@@ -123,8 +130,10 @@ export function Home() {
                 <span className="text-sm text-platinum-200">Personalización</span>
               </div>
             </div>
+            </ScrollReveal>
 
             {/* Búsqueda */}
+            <ScrollReveal delay={0.55}>
             <div className="max-w-xl mx-auto">
               <div className="relative">
                 <Search className="absolute left-4 top-1/2 -translate-y-1/2 h-6 w-6 text-platinum-400" />
@@ -137,8 +146,10 @@ export function Home() {
                 />
               </div>
             </div>
+            </ScrollReveal>
           </div>
         </div>
+        </Parallax>
       </div>
 
      
@@ -165,6 +176,7 @@ export function Home() {
 
       {/* Filtros y Productos */}
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-10 md:py-16">
+        <ScrollReveal>
         <div className="luxury-card p-5 md:p-7 mb-8 rounded-2xl border border-platinum-900/20">
           <div className="flex items-center justify-between flex-wrap gap-4">
             <div className="flex items-center gap-3">
@@ -236,8 +248,10 @@ export function Home() {
             </div>
           )}
         </div>
+        </ScrollReveal>
 
         {/* Resumen de resultados */}
+        <ScrollReveal>
         <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-8 gap-4">
           <p className="text-platinum-300">
             <span className="text-gold-400 font-semibold text-xl font-luxury">{filteredProducts.length}</span> productos encontrados
@@ -249,6 +263,7 @@ export function Home() {
             </div>
           )}
         </div>
+        </ScrollReveal>
 
         {/* Productos - Carrusel en móvil + Grid en desktop */}
         {filteredProducts.length > 0 ? (
@@ -273,11 +288,13 @@ export function Home() {
             </div>
 
             {/* Grid visible en pantallas medianas y grandes */}
-            <div className="hidden sm:grid sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-5 gap-6 md:gap-8">
+            <StaggerGroup className="hidden sm:grid sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-5 gap-6 md:gap-8">
               {filteredProducts.map(product => (
-                <ProductCard key={product.id} product={product} showAddToCart={true} />
+                <StaggerItem key={product.id}>
+                  <ProductCard product={product} showAddToCart={true} />
+                </StaggerItem>
               ))}
-            </div>
+            </StaggerGroup>
           </>
         ) : (
           <div className="text-center py-24">
