@@ -643,60 +643,68 @@ export function Dashboard() {
       {/* Credentials Form Modal */}
       {showCredentialsForm && (
         <div className="fixed inset-0 bg-black/70 backdrop-blur-sm flex items-end sm:items-center justify-center z-50 p-0 sm:p-4">
-          <div className="bg-charcoal-900 border border-platinum-700/30 rounded-t-2xl sm:rounded-2xl shadow-2xl max-w-md w-full max-h-[92vh] overflow-y-auto">
-            <div className="sticky top-0 bg-charcoal-900 border-b border-platinum-700/30 px-4 sm:px-6 py-4 flex items-center justify-between">
+          <div className="bg-charcoal-900 border border-platinum-700/30 rounded-t-2xl sm:rounded-2xl shadow-2xl max-w-md w-full max-h-[90vh] flex flex-col overflow-hidden">
+            {/* Header Fijo */}
+            <div className="flex-shrink-0 bg-charcoal-900 border-b border-platinum-700/30 px-4 sm:px-6 py-4 flex items-center justify-between">
               <h2 className="font-luxury text-xl font-semibold text-gradient-gold tracking-wide">
                 Cambiar Credenciales
               </h2>
               <button
+                type="button"
                 onClick={() => setShowCredentialsForm(false)}
                 className="p-2 text-platinum-400 hover:text-white hover:bg-white/5 rounded-lg transition-colors"
               >
                 <X className="h-5 w-5" />
               </button>
             </div>
-            <form onSubmit={handleCredentialsSubmit} className="p-4 sm:p-6 space-y-4">
-              <div>
-                <label className="block text-sm font-medium text-platinum-300 mb-1.5">Contraseña Actual</label>
-                <input
-                  type="password"
-                  value={credentialsFormData.currentPassword}
-                  onChange={e => setCredentialsFormData({ ...credentialsFormData, currentPassword: e.target.value })}
-                  className="luxury-input w-full py-2.5 px-3 rounded-lg"
-                  required
-                />
+
+            {/* Formulario / Cuerpo Scrolleable y Footer Fijo */}
+            <form onSubmit={handleCredentialsSubmit} className="flex flex-col flex-1 min-h-0">
+              <div className="flex-1 overflow-y-auto p-4 sm:p-6 space-y-4">
+                <div>
+                  <label className="block text-sm font-medium text-platinum-300 mb-1.5">Contraseña Actual</label>
+                  <input
+                    type="password"
+                    value={credentialsFormData.currentPassword}
+                    onChange={e => setCredentialsFormData({ ...credentialsFormData, currentPassword: e.target.value })}
+                    className="luxury-input w-full py-2.5 px-3 rounded-lg"
+                    required
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-platinum-300 mb-1.5">Nuevo Usuario</label>
+                  <input
+                    type="text"
+                    value={credentialsFormData.newUsername}
+                    onChange={e => setCredentialsFormData({ ...credentialsFormData, newUsername: e.target.value })}
+                    className="luxury-input w-full py-2.5 px-3 rounded-lg"
+                    required
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-platinum-300 mb-1.5">Nueva Contraseña</label>
+                  <input
+                    type="password"
+                    value={credentialsFormData.newPassword}
+                    onChange={e => setCredentialsFormData({ ...credentialsFormData, newPassword: e.target.value })}
+                    className="luxury-input w-full py-2.5 px-3 rounded-lg"
+                    required
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-platinum-300 mb-1.5">Confirmar Contraseña</label>
+                  <input
+                    type="password"
+                    value={credentialsFormData.confirmPassword}
+                    onChange={e => setCredentialsFormData({ ...credentialsFormData, confirmPassword: e.target.value })}
+                    className="luxury-input w-full py-2.5 px-3 rounded-lg"
+                    required
+                  />
+                </div>
               </div>
-              <div>
-                <label className="block text-sm font-medium text-platinum-300 mb-1.5">Nuevo Usuario</label>
-                <input
-                  type="text"
-                  value={credentialsFormData.newUsername}
-                  onChange={e => setCredentialsFormData({ ...credentialsFormData, newUsername: e.target.value })}
-                  className="luxury-input w-full py-2.5 px-3 rounded-lg"
-                  required
-                />
-              </div>
-              <div>
-                <label className="block text-sm font-medium text-platinum-300 mb-1.5">Nueva Contraseña</label>
-                <input
-                  type="password"
-                  value={credentialsFormData.newPassword}
-                  onChange={e => setCredentialsFormData({ ...credentialsFormData, newPassword: e.target.value })}
-                  className="luxury-input w-full py-2.5 px-3 rounded-lg"
-                  required
-                />
-              </div>
-              <div>
-                <label className="block text-sm font-medium text-platinum-300 mb-1.5">Confirmar Contraseña</label>
-                <input
-                  type="password"
-                  value={credentialsFormData.confirmPassword}
-                  onChange={e => setCredentialsFormData({ ...credentialsFormData, confirmPassword: e.target.value })}
-                  className="luxury-input w-full py-2.5 px-3 rounded-lg"
-                  required
-                />
-              </div>
-              <div className="flex flex-col sm:flex-row gap-3 pt-2">
+
+              {/* Botones Fijos */}
+              <div className="flex-shrink-0 flex flex-col sm:flex-row gap-3 px-4 sm:px-6 py-4 bg-charcoal-900 border-t border-platinum-700/30">
                 <button
                   type="button"
                   onClick={() => setShowCredentialsForm(false)}
@@ -716,19 +724,23 @@ export function Dashboard() {
       {/* Advanced Reports Modal */}
       {showReportsModal && (
         <div className="fixed inset-0 bg-black/70 backdrop-blur-sm flex items-end sm:items-center justify-center z-50 p-0 sm:p-4">
-          <div className="bg-charcoal-900 border border-platinum-700/30 rounded-t-2xl sm:rounded-2xl shadow-2xl max-w-4xl w-full max-h-[92vh] overflow-y-auto">
-            <div className="sticky top-0 bg-charcoal-900 border-b border-platinum-700/30 px-4 sm:px-6 py-4 flex items-center justify-between">
+          <div className="bg-charcoal-900 border border-platinum-700/30 rounded-t-2xl sm:rounded-2xl shadow-2xl max-w-4xl w-full max-h-[90vh] flex flex-col overflow-hidden">
+            {/* Header Fijo */}
+            <div className="flex-shrink-0 bg-charcoal-900 border-b border-platinum-700/30 px-4 sm:px-6 py-4 flex items-center justify-between">
               <h2 className="font-luxury text-xl sm:text-2xl font-semibold text-gradient-gold tracking-wide">
                 Reportes Avanzados
               </h2>
               <button
+                type="button"
                 onClick={() => setShowReportsModal(false)}
                 className="p-2 text-platinum-400 hover:text-white hover:bg-white/5 rounded-lg transition-colors"
               >
                 <X className="h-5 w-5" />
               </button>
             </div>
-            <div className="p-4 sm:p-6">
+
+            {/* Contenido Scrolleable */}
+            <div className="flex-1 overflow-y-auto p-4 sm:p-6">
               <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-6">
                 <ReportCard
                   icon={Download}
