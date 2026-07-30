@@ -10,6 +10,7 @@ import { Login } from './pages/Login';
 import { Dashboard } from './pages/Dashboard';
 import { Categories } from './pages/Categories';
 import { Branches } from './pages/Branches';
+import { Settings } from './pages/Settings';
 import { useApp } from './context/AppContext';
 
 function ProtectedRoute({ children }: { children: React.ReactNode }) {
@@ -55,6 +56,14 @@ function App() {
                 <>
                   <Header />
                   <Branches />
+                </>
+              </ProtectedRoute>
+            } />
+            <Route path="/ñoñito/settings" element={
+              <ProtectedRoute>
+                <>
+                  <Header />
+                  <Settings />
                 </>
               </ProtectedRoute>
             } />

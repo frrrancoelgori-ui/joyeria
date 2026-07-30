@@ -4,8 +4,10 @@ import { motion } from 'framer-motion';
 import { Lock, Eye, EyeOff, Diamond } from 'lucide-react';
 import { useApp } from '../context/AppContext';
 
+import { useApp } from '../context/AppContext';
+
 export function Login() {
-  const { isAuthenticated, loginWithCredentials } = useApp();
+  const { isAuthenticated, loginWithCredentials, storeSettings } = useApp();
   const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
@@ -42,7 +44,7 @@ export function Login() {
             <Diamond className="h-10 w-10 text-gold-400" />
           </motion.div>
           <h1 className="font-luxury text-3xl font-semibold text-gradient-gold tracking-wide mb-2">
-            Diamante Real
+            {storeSettings.storeName}
           </h1>
           <div className="luxury-divider w-20 mx-auto mb-4" />
           <p className="text-platinum-300 font-light tracking-wide">Panel de Administración</p>

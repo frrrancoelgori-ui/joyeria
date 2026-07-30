@@ -11,6 +11,12 @@ import { BranchService } from '../services/BranchService';
 import { supabase, callAdminFunction } from '../services/supabaseClient';
 import Swal from 'sweetalert2';
 
+interface StoreSettings {
+  storeName: string;
+  whatsappNumber: string;
+  logoUrl: string | null;
+}
+
 interface AppContextType {
   products: Product[];
   branches: Branch[];
@@ -19,8 +25,10 @@ interface AppContextType {
   sales: Sale[];
   isAuthenticated: boolean;
   loading: boolean;
+  storeSettings: StoreSettings;
   loginWithCredentials: (username: string, password: string) => Promise<boolean>;
   changeCredentials: (currentPassword: string, newUsername: string, newPassword: string) => Promise<boolean>;
+  updateStoreSettings: (settings: Partial<StoreSettings>) => Promise<boolean>;
   logout: () => void;
   selectBranch: (branch: Branch) => void;
   addBranch: (branch: Omit<Branch, 'id'>) => Promise<void>;
@@ -124,6 +132,11 @@ export function AppProvider({ children }: { children: ReactNode }) {
   const [sales, setSales] = useState<Sale[]>([]);
   const [isAuthenticated, setIsAuthenticated] = useState(false);
   const [loading, setLoading] = useState(true);
+  const [storeSettings, setStoreSettings] = useState<StoreSettings>({
+    storeName: 'Diamante Real',
+    whatsappNumber: '56941228089',
+    logoUrl: null,
+  });
 
   const analyticsService = AnalyticsService.getInstance();
   const exportService = ExportService.getInstance();
@@ -165,6 +178,18 @@ export function AppProvider({ children }: { children: ReactNode }) {
     return (saleRows || []).map(s => mapDbSale(s, s.sale_items || []));
   }, []);
 
+  const loadSettings = useCallback(async (): Promise<StoreSettings> => {
+    const { data, error } = await supabase.from('store_settings').select('*').eq('id', 1).maybeSingle();
+    if (error || !data) {
+      return { storeName: 'Diamante Real', whatsappNumber: '56941228089', logoUrl: null };
+    }
+    return {
+      storeName: data.store_name,
+      whatsappNumber: data.whatsapp_number,
+      logoUrl: data.logo_url,
+    };
+  }, []);
+
   useEffect(() => {
     (async () => {
       const bl = await loadBranches();
@@ -173,9 +198,11 @@ export function AppProvider({ children }: { children: ReactNode }) {
       setProducts(pl);
       const sl = await loadSales();
       setSales(sl);
+      const st = await loadSettings();
+      setStoreSettings(st);
       setLoading(false);
     })();
-  }, [loadBranches, loadProducts, loadSales]);
+  }, [loadBranches, loadProducts, loadSales, loadSettings]);
 
   // ---- Auth ----
   const loginWithCredentials = useCallback(async (username: string, password: string): Promise<boolean> => {
@@ -237,6 +264,29 @@ export function AppProvider({ children }: { children: ReactNode }) {
       return true;
     } catch {
       Swal.fire({ title: 'Error', text: 'No se pudo conectar con el servidor', icon: 'error' });
+      return false;
+    }
+  }, []);
+
+  const updateStoreSettings = useCallback(async (settings: Partial<StoreSettings>): Promise<boolean> => {
+    try {
+      const res = await callAdminFunction('/admin-api/settings', {
+        method: 'PUT',
+        body: JSON.stringify(settings),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error);
+      setStoreSettings(prev => ({ ...prev, ...data.settings }));
+      Swal.fire({
+        title: '¡Configuración guardada!',
+        text: 'Los cambios se aplicaron en toda la tienda',
+        icon: 'success',
+        timer: 2000,
+        showConfirmButton: false,
+      });
+      return true;
+    } catch (err: any) {
+      Swal.fire({ title: 'Error', text: err.message || 'No se guardó la configuración', icon: 'error' });
       return false;
     }
   }, []);
@@ -566,8 +616,8 @@ export function AppProvider({ children }: { children: ReactNode }) {
   return (
     <AppContext.Provider value={{
       products, branches, selectedBranch, cart, sales,
-      isAuthenticated, loading,
-      loginWithCredentials, changeCredentials, logout,
+      isAuthenticated, loading, storeSettings,
+      loginWithCredentials, changeCredentials, updateStoreSettings, logout,
       selectBranch, addBranch, updateBranch, deleteBranch,
       addProduct, addProducts, updateProduct, deleteProduct, transferStock,
       addToCart, removeFromCart, updateCartQuantity, clearCart, completePurchase,

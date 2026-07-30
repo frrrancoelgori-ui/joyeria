@@ -11,7 +11,7 @@ import { useApp } from '../context/AppContext';
 import { ScrollReveal, StaggerGroup, StaggerItem, Parallax } from '../components/ScrollReveal';
 
 export function Home() {
-  const { products, cart } = useApp();
+  const { products, cart, storeSettings } = useApp();
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedCategory, setSelectedCategory] = useState('');
   const [selectedMaterial, setSelectedMaterial] = useState('');
@@ -60,7 +60,7 @@ export function Home() {
     }
 
     const total = cart.reduce((sum, item) => sum + item.product.price * item.quantity, 0);
-    let message = '¡Hola! Me interesan estos productos de Diamante Real:\n\n';
+    let message = `¡Hola! Me interesan estos productos de ${storeSettings.storeName}:\n\n`;
 
     cart.forEach((item, index) => {
       message += `${index + 1}. *${item.product.name}*\n`;
@@ -80,7 +80,7 @@ export function Home() {
     message += `*TOTAL: $${total.toLocaleString()}*\n\n`;
     message += 'Me gustaría recibir más información sobre estos productos y conocer las opciones de pago y entrega. ¡Gracias!';
 
-    const phoneNumber = '+56941228089'; // ← ¡CAMBIAR POR EL NÚMERO REAL DE LA TIENDA!
+    const phoneNumber = storeSettings.whatsappNumber;
     const whatsappUrl = `https://wa.me/${phoneNumber}?text=${encodeURIComponent(message)}`;
     window.open(whatsappUrl, '_blank');
   };
@@ -98,7 +98,7 @@ export function Home() {
             <div className="flex items-center justify-center mb-6 gap-3 md:gap-5">
               <Diamond className="h-10 w-10 md:h-14 md:w-14 text-gold-500 animate-pulse" />
               <h1 className="font-luxury text-5xl md:text-7xl font-semibold text-gradient-gold tracking-wide drop-shadow-lg">
-                Diamante Real
+                {storeSettings.storeName}
               </h1>
               <Diamond className="h-10 w-10 md:h-14 md:w-14 text-gold-500 animate-pulse" />
             </div>

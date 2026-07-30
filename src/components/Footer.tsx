@@ -1,27 +1,16 @@
 import React from 'react';
 import { MapPin, Phone, Mail, Clock, Facebook, Instagram, Twitter, Diamond } from 'lucide-react';
+import { useApp } from '../context/AppContext';
 
 export function Footer() {
-  const branches = [
-    {
-      name: 'Diamante Real Centro',
-      address: 'Av. Gabriela mistral 1120, Los Angeles ',
-      phone: '+56 (9) 41228089',
-      hours: 'Lun-Vie: 9:00-19:00, Sáb: 10:00-20:00'
-    },
-    {
-      name: 'Diamante Real Plaza Norte',
-      address: 'Centro Comercial Plaza Norte, Local 205',
-      phone: ' (569) 41228089',
-      hours: 'Lun-Sáb: 10:00-21:00, Dom: 12:00-20:00'
-    },
-    {
-      name: 'Diamante Real Boutique',
-      address: 'Zona Rosa, Calle Exclusiva 456',
-      phone: '(569)41228089',
-      hours: 'Lun-Sáb: 11:00-20:00, Dom: Cerrado'
-    }
-  ];
+  const { branches, storeSettings } = useApp();
+
+  const footerBranches = branches.map(b => ({
+    name: b.name,
+    address: `${b.address}, ${b.city}`,
+    phone: b.phone,
+    hours: b.openingHours?.monday || '—',
+  }));
 
   return (
     <footer className="bg-charcoal-950 border-t border-gold-500/20">
@@ -29,9 +18,13 @@ export function Footer() {
         {/* Header del Footer */}
         <div className="text-center mb-12 sm:mb-16">
           <div className="flex items-center justify-center mb-4">
-            <Diamond className="h-8 w-8 text-gold-400 mr-3" />
+            {storeSettings.logoUrl ? (
+              <img src={storeSettings.logoUrl} alt="logo" className="h-8 w-8 object-cover rounded-lg border border-gold-500/30 mr-3" />
+            ) : (
+              <Diamond className="h-8 w-8 text-gold-400 mr-3" />
+            )}
             <h2 className="font-luxury text-3xl sm:text-4xl font-semibold text-gradient-gold tracking-wide">
-              Diamante Real
+              {storeSettings.storeName}
             </h2>
           </div>
           <div className="luxury-divider w-32 mx-auto mb-6" />
@@ -48,7 +41,7 @@ export function Footer() {
               Nuestra Historia
             </h3>
             <p className="text-platinum-300 mb-4 font-light text-sm leading-relaxed">
-              Fundada en 1998, Diamante Real se ha consolidado como la joyería de confianza
+              Fundada en 1998, {storeSettings.storeName} se ha consolidado como la joyería de confianza
               para momentos especiales. Ofrecemos piezas únicas con certificación internacional.
             </p>
             <div className="flex space-x-4">
@@ -70,7 +63,7 @@ export function Footer() {
               Nuestras Sucursales
             </h3>
             <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-              {branches.map((branch, index) => (
+              {footerBranches.map((branch, index) => (
                 <div key={index} className="luxury-card p-5 rounded-xl">
                   <h4 className="font-luxury text-lg font-semibold text-white mb-3">{branch.name}</h4>
                   <div className="space-y-2 text-sm font-light">
@@ -197,7 +190,7 @@ export function Footer() {
         {/* Copyright */}
         <div className="border-t border-platinum-700/20 pt-6 text-center">
           <p className="text-platinum-400 text-sm font-light">
-            © 2024 Diamante Real. Todos los derechos reservados. |
+            © 2024 {storeSettings.storeName}. Todos los derechos reservados. |
             <span className="text-gold-400"> Joyería de Lujo desde 1998</span>
           </p>
           <p className="text-platinum-500 text-xs mt-2 font-light">

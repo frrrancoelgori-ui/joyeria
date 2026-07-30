@@ -5,14 +5,14 @@ import { ShoppingCart, Plus, Minus, Trash2, ArrowLeft, MessageCircle, Sparkles, 
 import { useApp } from '../context/AppContext';
 
 export function Cart() {
-  const { cart, updateCartQuantity, removeFromCart, clearCart, completePurchase } = useApp();
+  const { cart, updateCartQuantity, removeFromCart, clearCart, completePurchase, storeSettings } = useApp();
 
   const total = cart.reduce((sum, item) => sum + item.product.price * item.quantity, 0);
 
   const sendToWhatsApp = () => {
     if (cart.length === 0) return;
 
-    let message = '¡Hola! Me interesan estos productos de Diamante Real:\n\n';
+    let message = `¡Hola! Me interesan estos productos de ${storeSettings.storeName}:\n\n`;
 
     cart.forEach((item, index) => {
       message += `${index + 1}. *${item.product.name}*\n`;
@@ -32,7 +32,7 @@ export function Cart() {
     message += `*TOTAL: $${total.toLocaleString()}*\n\n`;
     message += 'Me gustaría recibir más información sobre estos productos y conocer las opciones de pago y entrega. ¡Gracias!';
 
-    const phoneNumber = '941228089';
+    const phoneNumber = storeSettings.whatsappNumber;
     const whatsappUrl = `https://wa.me/${phoneNumber}?text=${encodeURIComponent(message)}`;
     window.open(whatsappUrl, '_blank');
   };

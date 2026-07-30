@@ -370,6 +370,51 @@ function json(body: any, status = 200): Response {
   });
 }
 
+// ---- Store settings ----
+
+async function handleSettings(req: Request, method: string): Promise<Response> {
+  if (method === "GET") {
+    const { data, error } = await supabase
+      .from("store_settings")
+      .select("*")
+      .eq("id", 1)
+      .maybeSingle();
+    if (error) return json({ error: error.message }, 500);
+    if (!data) return json({ error: "No settings found" }, 404);
+    return json({
+      storeName: data.store_name,
+      whatsappNumber: data.whatsapp_number,
+      logoUrl: data.logo_url,
+    });
+  }
+
+  if (method === "PUT") {
+    const b = await req.json();
+    const updates: any = { updated_at: new Date().toISOString() };
+    if (b.storeName !== undefined) updates.store_name = b.storeName;
+    if (b.whatsappNumber !== undefined) updates.whatsapp_number = b.whatsappNumber;
+    if (b.logoUrl !== undefined) updates.logo_url = b.logoUrl || null;
+
+    const { data, error } = await supabase
+      .from("store_settings")
+      .update(updates)
+      .eq("id", 1)
+      .select("*")
+      .single();
+    if (error) return json({ error: error.message }, 500);
+    return json({
+      success: true,
+      settings: {
+        storeName: data.store_name,
+        whatsappNumber: data.whatsapp_number,
+        logoUrl: data.logo_url,
+      },
+    });
+  }
+
+  return json({ error: "Método no soportado" }, 405);
+}
+
 Deno.serve(async (req: Request) => {
   if (req.method === "OPTIONS") {
     return new Response(null, { status: 200, headers: corsHeaders });
@@ -385,6 +430,7 @@ Deno.serve(async (req: Request) => {
     if (path === "/product" && ["POST", "PUT", "DELETE"].includes(req.method)) return await handleProductAction(req, req.method);
     if (path === "/branch" && ["POST", "PUT", "DELETE"].includes(req.method)) return await handleBranchAction(req, req.method);
     if (path === "/sale" && req.method === "POST") return await handleRecordSale(req);
+    if (path === "/settings" && ["GET", "PUT"].includes(req.method)) return await handleSettings(req, req.method);
     return json({ error: "Ruta no encontrada" }, 404);
   } catch (err) {
     return json({ error: err.message || "Error interno" }, 500);

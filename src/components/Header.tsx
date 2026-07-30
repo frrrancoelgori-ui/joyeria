@@ -5,7 +5,7 @@ import { useApp } from '../context/AppContext';
 import Swal from 'sweetalert2';
 
 export function Header() {
-  const { cart, isAuthenticated, logout } = useApp();
+  const { cart, isAuthenticated, logout, storeSettings } = useApp();
   const location = useLocation();
   const isAdmin = location.pathname.includes('/ñoñito');
 
@@ -44,11 +44,15 @@ export function Header() {
         <div className="flex justify-between items-center h-16 sm:h-18">
           <Link to="/" className="flex items-center space-x-3 group">
             <div className="relative">
-              <Diamond className="h-7 w-7 sm:h-8 sm:w-8 text-gold-400 transition-transform duration-500 group-hover:rotate-180" />
+              {storeSettings.logoUrl ? (
+                <img src={storeSettings.logoUrl} alt="logo" className="h-7 w-7 sm:h-8 sm:w-8 object-cover rounded-lg border border-gold-500/30" />
+              ) : (
+                <Diamond className="h-7 w-7 sm:h-8 sm:w-8 text-gold-400 transition-transform duration-500 group-hover:rotate-180" />
+              )}
               <div className="absolute inset-0 bg-gold-400/20 blur-xl rounded-full opacity-0 group-hover:opacity-100 transition-opacity duration-500" />
             </div>
             <span className="font-luxury text-xl sm:text-2xl font-semibold text-gradient-gold tracking-wide">
-              Diamante Real
+              {storeSettings.storeName}
             </span>
           </Link>
 
@@ -89,6 +93,9 @@ export function Header() {
                 </Link>
                 <Link to="/ñoñito/branches" className={navLinkClass}>
                   Sucursales
+                </Link>
+                <Link to="/ñoñito/settings" className={navLinkClass}>
+                  Configuración
                 </Link>
                 <Link to="/" className={navLinkClass}>
                   Ver Tienda
