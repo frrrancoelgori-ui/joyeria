@@ -239,13 +239,15 @@ export function AppProvider({ children }: { children: ReactNode }) {
       setProducts(pl);
       const sl = await loadSales();
       setSales(sl);
+      analyticsService.setSalesData(sl);
+      sl.forEach(s => customerService.processSale(s));
       const cl = await loadCustomers();
       setCustomers(cl);
       const st = await loadSettings();
       setStoreSettings(st);
       setLoading(false);
     })();
-  }, [loadBranches, loadProducts, loadSales, loadCustomers, loadSettings]);
+  }, [loadBranches, loadProducts, loadSales, loadCustomers, loadSettings, analyticsService, customerService]);
 
   // ---- Auth ----
   const loginWithCredentials = useCallback(async (username: string, password: string): Promise<boolean> => {
@@ -597,6 +599,8 @@ export function AppProvider({ children }: { children: ReactNode }) {
         branchId: params.branchId,
       };
       setSales(prev => [sale, ...prev]);
+      analyticsService.addSale(sale);
+      customerService.processSale(sale);
       // Decrement stock locally
       setProducts(prev => prev.map(product => {
         const cartItem = params.items.find(item => item.product.id === product.id);

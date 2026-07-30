@@ -74,8 +74,12 @@ export class AnalyticsService {
     this.updateRealTimeMetrics();
   }
 
+  public setSalesData(sales: Sale[]) {
+    this.salesData = sales;
+    this.updateRealTimeMetrics();
+  }
+
   @performance
-  @memoize
   public calculateRevenue(products: Product[], timeframe: 'day' | 'week' | 'month' = 'month'): number {
     const now = new Date();
     const startDate = new Date();
