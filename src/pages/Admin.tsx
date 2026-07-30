@@ -189,7 +189,11 @@ export function Admin() {
             </p>
           </div>
           <button
-            onClick={() => setShowForm(true)}
+            onClick={() => {
+              setEditingProduct(null);
+              setFormData(emptyForm);
+              setShowForm(true);
+            }}
             className="luxury-button w-full sm:w-auto px-5 sm:px-6 py-2.5 sm:py-3 rounded-lg flex items-center justify-center gap-2"
           >
             <Plus className="h-5 w-5" />
@@ -281,7 +285,7 @@ export function Admin() {
               <tbody className="divide-y divide-platinum-700/20">
                 {filteredProducts.length === 0 ? (
                   <tr>
-                    <td colSpan={7} className="px-6 py-16 text-center">
+                    <td colSpan={8} className="px-6 py-16 text-center">
                       <Package className="h-12 w-12 text-platinum-600 mx-auto mb-3" />
                       <p className="text-platinum-400">No se encontraron productos</p>
                     </td>
@@ -507,13 +511,15 @@ export function Admin() {
               animate={{ y: 0, opacity: 1 }}
               exit={{ y: 50, opacity: 0 }}
               transition={{ type: 'spring', damping: 25, stiffness: 300 }}
-              className="bg-charcoal-900 border border-platinum-700/30 rounded-t-2xl sm:rounded-2xl shadow-2xl max-w-2xl w-full max-h-[92vh] overflow-y-auto"
+              className="bg-charcoal-900 border border-platinum-700/30 rounded-t-2xl sm:rounded-2xl shadow-2xl max-w-2xl w-full max-h-[90vh] flex flex-col overflow-hidden"
             >
-              <div className="sticky top-0 bg-charcoal-900 border-b border-platinum-700/30 px-4 sm:px-6 py-4 flex items-center justify-between z-10">
+              {/* Fixed Header */}
+              <div className="flex-shrink-0 border-b border-platinum-700/30 px-4 sm:px-6 py-4 flex items-center justify-between bg-charcoal-900">
                 <h2 className="font-luxury text-xl sm:text-2xl font-semibold text-gradient-gold tracking-wide">
                   {editingProduct ? 'Editar Producto' : 'Nuevo Producto'}
                 </h2>
                 <button
+                  type="button"
                   onClick={resetForm}
                   className="p-2 text-platinum-400 hover:text-white hover:bg-white/5 rounded-lg transition-colors"
                 >
@@ -521,266 +527,271 @@ export function Admin() {
                 </button>
               </div>
 
-              <form onSubmit={handleSubmit} className="p-4 sm:p-6 space-y-4">
-                {/* Image Preview */}
-                {formData.image && (
-                  <div className="relative h-40 rounded-lg overflow-hidden border border-platinum-700/30">
-                    <img src={formData.image} alt="preview" className="w-full h-full object-cover" />
-                    <div className="absolute inset-0 bg-gradient-to-t from-charcoal-900/80 to-transparent" />
-                  </div>
-                )}
+              {/* Form Container */}
+              <form onSubmit={handleSubmit} className="flex flex-col flex-1 min-h-0">
+                {/* Scrollable Form Body */}
+                <div className="flex-1 overflow-y-auto p-4 sm:p-6 space-y-4">
+                  {/* Image Preview */}
+                  {formData.image && (
+                    <div className="relative h-40 rounded-lg overflow-hidden border border-platinum-700/30">
+                      <img src={formData.image} alt="preview" className="w-full h-full object-cover" />
+                      <div className="absolute inset-0 bg-gradient-to-t from-charcoal-900/80 to-transparent" />
+                    </div>
+                  )}
 
-                <div>
-                  <label className="block text-sm font-medium text-platinum-300 mb-1.5">
-                    URL de Imagen Principal
-                  </label>
-                  <input
-                    type="url"
-                    value={formData.image}
-                    onChange={e => setFormData({ ...formData, image: e.target.value })}
-                    className="luxury-input w-full py-2.5 px-3 rounded-lg"
-                    placeholder="https://... (Drive, Pexels, Google, etc.)"
-                    required
-                  />
-                </div>
-
-                {/* Additional Images */}
-                <div>
-                  <label className="block text-sm font-medium text-platinum-300 mb-1.5">
-                    Fotos Adicionales
-                  </label>
-                  <div className="flex gap-2">
+                  <div>
+                    <label className="block text-sm font-medium text-platinum-300 mb-1.5">
+                      URL de Imagen Principal
+                    </label>
                     <input
                       type="url"
-                      value={newImageUrl}
-                      onChange={e => setNewImageUrl(e.target.value)}
-                      onKeyDown={e => { if (e.key === 'Enter') { e.preventDefault(); addImageUrl(); } }}
-                      className="luxury-input flex-1 py-2.5 px-3 rounded-lg"
-                      placeholder="Pega otra URL de foto..."
-                    />
-                    <button
-                      type="button"
-                      onClick={addImageUrl}
-                      className="px-4 py-2.5 border border-gold-500/30 text-gold-300 rounded-lg hover:bg-gold-500/10 transition-colors"
-                    >
-                      <Plus className="h-4 w-4" />
-                    </button>
-                  </div>
-                  {formData.additionalImages.length > 0 && (
-                    <div className="grid grid-cols-3 sm:grid-cols-4 gap-2 mt-3">
-                      {formData.additionalImages.map((url, idx) => (
-                        <div key={idx} className="relative group">
-                          <img src={url} alt={`foto ${idx + 1}`} className="h-20 w-full object-cover rounded-lg border border-platinum-700/30" />
-                          <button
-                            type="button"
-                            onClick={() => removeImageUrl(url)}
-                            className="absolute top-1 right-1 p-1 bg-black/70 text-red-400 rounded opacity-0 group-hover:opacity-100 transition-opacity"
-                          >
-                            <X className="h-3 w-3" />
-                          </button>
-                        </div>
-                      ))}
-                    </div>
-                  )}
-                </div>
-
-                <div>
-                  <label className="block text-sm font-medium text-platinum-300 mb-1.5">
-                    Nombre
-                  </label>
-                  <input
-                    type="text"
-                    value={formData.name}
-                    onChange={e => setFormData({ ...formData, name: e.target.value })}
-                    className="luxury-input w-full py-2.5 px-3 rounded-lg"
-                    required
-                  />
-                </div>
-
-                <div>
-                  <label className="block text-sm font-medium text-platinum-300 mb-1.5">
-                    Descripción
-                  </label>
-                  <textarea
-                    value={formData.description}
-                    onChange={e => setFormData({ ...formData, description: e.target.value })}
-                    className="luxury-input w-full py-2.5 px-3 rounded-lg resize-none"
-                    rows={3}
-                    required
-                  />
-                </div>
-
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                  <div>
-                    <label className="block text-sm font-medium text-platinum-300 mb-1.5">Precio ($)</label>
-                    <input
-                      type="number"
-                      value={formData.price}
-                      onChange={e => setFormData({ ...formData, price: e.target.value })}
+                      value={formData.image}
+                      onChange={e => setFormData({ ...formData, image: e.target.value })}
                       className="luxury-input w-full py-2.5 px-3 rounded-lg"
+                      placeholder="https://... (Drive, Pexels, Google, etc.)"
                       required
                     />
                   </div>
-                  <div>
-                    <label className="block text-sm font-medium text-platinum-300 mb-1.5">Stock</label>
-                    <input
-                      type="number"
-                      value={formData.stock}
-                      onChange={e => setFormData({ ...formData, stock: e.target.value })}
-                      className="luxury-input w-full py-2.5 px-3 rounded-lg"
-                      required
-                    />
-                  </div>
-                </div>
 
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                  {/* Additional Images */}
                   <div>
-                    <label className="block text-sm font-medium text-platinum-300 mb-1.5">Categoría</label>
-                    <input
-                      type="text"
-                      value={formData.category}
-                      onChange={e => setFormData({ ...formData, category: e.target.value })}
-                      className="luxury-input w-full py-2.5 px-3 rounded-lg"
-                      placeholder="Anillos, Collares..."
-                      list="category-suggestions"
-                      required
-                    />
-                    <datalist id="category-suggestions">
-                      {categories.map(c => <option key={c} value={c} />)}
-                    </datalist>
-                  </div>
-                  <div>
-                    <label className="block text-sm font-medium text-platinum-300 mb-1.5">Material</label>
-                    <input
-                      type="text"
-                      value={formData.material}
-                      onChange={e => setFormData({ ...formData, material: e.target.value })}
-                      className="luxury-input w-full py-2.5 px-3 rounded-lg"
-                      placeholder="Oro 18k, Plata 925..."
-                      required
-                    />
-                  </div>
-                </div>
-
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                  <div>
-                    <label className="block text-sm font-medium text-platinum-300 mb-1.5">Peso (gramos)</label>
-                    <input
-                      type="number"
-                      step="0.1"
-                      value={formData.weight}
-                      onChange={e => setFormData({ ...formData, weight: e.target.value })}
-                      className="luxury-input w-full py-2.5 px-3 rounded-lg"
-                      required
-                    />
-                  </div>
-                  <div>
-                    <label className="block text-sm font-medium text-platinum-300 mb-1.5">Tamaño</label>
-                    <input
-                      type="text"
-                      value={formData.size}
-                      onChange={e => setFormData({ ...formData, size: e.target.value })}
-                      className="luxury-input w-full py-2.5 px-3 rounded-lg"
-                      placeholder="Talla 7, 45cm..."
-                      required
-                    />
-                  </div>
-                </div>
-
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                  <div>
-                    <label className="block text-sm font-medium text-platinum-300 mb-1.5">Gemas (opcional)</label>
-                    <input
-                      type="text"
-                      value={formData.gemstone}
-                      onChange={e => setFormData({ ...formData, gemstone: e.target.value })}
-                      className="luxury-input w-full py-2.5 px-3 rounded-lg"
-                      placeholder="Diamante 1ct..."
-                    />
-                  </div>
-                  <div>
-                    <label className="block text-sm font-medium text-platinum-300 mb-1.5">Certificación (opcional)</label>
-                    <input
-                      type="text"
-                      value={formData.certification}
-                      onChange={e => setFormData({ ...formData, certification: e.target.value })}
-                      className="luxury-input w-full py-2.5 px-3 rounded-lg"
-                      placeholder="GIA Certificado..."
-                    />
-                  </div>
-                </div>
-
-                <div>
-                  <label className="block text-sm font-medium text-platinum-300 mb-1.5">Sucursal</label>
-                  <select
-                    value={formData.branchId}
-                    onChange={e => setFormData({ ...formData, branchId: e.target.value })}
-                    className="luxury-input w-full py-2.5 px-3 rounded-lg"
-                    required
-                  >
-                    <option value="">Seleccionar sucursal</option>
-                    {branches.map(branch => (
-                      <option key={branch.id} value={branch.id}>{branch.name}</option>
-                    ))}
-                  </select>
-                </div>
-
-                <div>
-                  <label className="block text-sm font-medium text-platinum-300 mb-1.5">Estado del Producto</label>
-                  <div className="grid grid-cols-3 gap-2">
-                    {[
-                      { value: 'available', label: 'Disponible' },
-                      { value: 'sold', label: 'Vendido' },
-                      { value: 'reserved', label: 'Reservado' },
-                    ].map(opt => (
+                    <label className="block text-sm font-medium text-platinum-300 mb-1.5">
+                      Fotos Adicionales
+                    </label>
+                    <div className="flex gap-2">
+                      <input
+                        type="url"
+                        value={newImageUrl}
+                        onChange={e => setNewImageUrl(e.target.value)}
+                        onKeyDown={e => { if (e.key === 'Enter') { e.preventDefault(); addImageUrl(); } }}
+                        className="luxury-input flex-1 py-2.5 px-3 rounded-lg"
+                        placeholder="Pega otra URL de foto..."
+                      />
                       <button
-                        key={opt.value}
                         type="button"
-                        onClick={() => setFormData({ ...formData, status: opt.value })}
-                        className={`px-3 py-2.5 text-sm rounded-lg border transition-all ${
-                          formData.status === opt.value
-                            ? statusBadge(opt.value) + ' ring-1 ring-gold-500/50'
-                            : 'border-platinum-700/30 text-platinum-400 hover:bg-white/5'
-                        }`}
+                        onClick={addImageUrl}
+                        className="px-4 py-2.5 border border-gold-500/30 text-gold-300 rounded-lg hover:bg-gold-500/10 transition-colors"
                       >
-                        {opt.label}
+                        <Plus className="h-4 w-4" />
                       </button>
-                    ))}
+                    </div>
+                    {formData.additionalImages.length > 0 && (
+                      <div className="grid grid-cols-3 sm:grid-cols-4 gap-2 mt-3">
+                        {formData.additionalImages.map((url, idx) => (
+                          <div key={idx} className="relative group">
+                            <img src={url} alt={`foto ${idx + 1}`} className="h-20 w-full object-cover rounded-lg border border-platinum-700/30" />
+                            <button
+                              type="button"
+                              onClick={() => removeImageUrl(url)}
+                              className="absolute top-1 right-1 p-1 bg-black/70 text-red-400 rounded opacity-0 group-hover:opacity-100 transition-opacity"
+                            >
+                              <X className="h-3 w-3" />
+                            </button>
+                          </div>
+                        ))}
+                      </div>
+                    )}
                   </div>
-                </div>
 
-                <div className="luxury-card p-4 rounded-lg space-y-3">
-                  <label className="flex items-center cursor-pointer">
+                  <div>
+                    <label className="block text-sm font-medium text-platinum-300 mb-1.5">
+                      Nombre
+                    </label>
                     <input
-                      type="checkbox"
-                      checked={formData.isCustomizable}
-                      onChange={e => setFormData({ ...formData, isCustomizable: e.target.checked })}
-                      className="mr-3 h-4 w-4 accent-gold-500"
+                      type="text"
+                      value={formData.name}
+                      onChange={e => setFormData({ ...formData, name: e.target.value })}
+                      className="luxury-input w-full py-2.5 px-3 rounded-lg"
+                      required
                     />
-                    <span className="text-sm text-platinum-200 flex items-center gap-2">
-                      <Sparkles className="h-4 w-4 text-gold-400" />
-                      Producto personalizable
-                    </span>
-                  </label>
+                  </div>
 
-                  {formData.isCustomizable && (
+                  <div>
+                    <label className="block text-sm font-medium text-platinum-300 mb-1.5">
+                      Descripción
+                    </label>
+                    <textarea
+                      value={formData.description}
+                      onChange={e => setFormData({ ...formData, description: e.target.value })}
+                      className="luxury-input w-full py-2.5 px-3 rounded-lg resize-none"
+                      rows={3}
+                      required
+                    />
+                  </div>
+
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                     <div>
-                      <label className="block text-sm font-medium text-platinum-300 mb-1.5">
-                        Tiempo de elaboración (días)
-                      </label>
+                      <label className="block text-sm font-medium text-platinum-300 mb-1.5">Precio ($)</label>
                       <input
                         type="number"
-                        value={formData.craftingTime}
-                        onChange={e => setFormData({ ...formData, craftingTime: e.target.value })}
+                        value={formData.price}
+                        onChange={e => setFormData({ ...formData, price: e.target.value })}
                         className="luxury-input w-full py-2.5 px-3 rounded-lg"
-                        min="1"
-                        placeholder="7"
+                        required
                       />
                     </div>
-                  )}
+                    <div>
+                      <label className="block text-sm font-medium text-platinum-300 mb-1.5">Stock</label>
+                      <input
+                        type="number"
+                        value={formData.stock}
+                        onChange={e => setFormData({ ...formData, stock: e.target.value })}
+                        className="luxury-input w-full py-2.5 px-3 rounded-lg"
+                        required
+                      />
+                    </div>
+                  </div>
+
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                    <div>
+                      <label className="block text-sm font-medium text-platinum-300 mb-1.5">Categoría</label>
+                      <input
+                        type="text"
+                        value={formData.category}
+                        onChange={e => setFormData({ ...formData, category: e.target.value })}
+                        className="luxury-input w-full py-2.5 px-3 rounded-lg"
+                        placeholder="Anillos, Collares..."
+                        list="category-suggestions"
+                        required
+                      />
+                      <datalist id="category-suggestions">
+                        {categories.map(c => <option key={c} value={c} />)}
+                      </datalist>
+                    </div>
+                    <div>
+                      <label className="block text-sm font-medium text-platinum-300 mb-1.5">Material</label>
+                      <input
+                        type="text"
+                        value={formData.material}
+                        onChange={e => setFormData({ ...formData, material: e.target.value })}
+                        className="luxury-input w-full py-2.5 px-3 rounded-lg"
+                        placeholder="Oro 18k, Plata 925..."
+                        required
+                      />
+                    </div>
+                  </div>
+
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                    <div>
+                      <label className="block text-sm font-medium text-platinum-300 mb-1.5">Peso (gramos)</label>
+                      <input
+                        type="number"
+                        step="0.1"
+                        value={formData.weight}
+                        onChange={e => setFormData({ ...formData, weight: e.target.value })}
+                        className="luxury-input w-full py-2.5 px-3 rounded-lg"
+                        required
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-sm font-medium text-platinum-300 mb-1.5">Tamaño</label>
+                      <input
+                        type="text"
+                        value={formData.size}
+                        onChange={e => setFormData({ ...formData, size: e.target.value })}
+                        className="luxury-input w-full py-2.5 px-3 rounded-lg"
+                        placeholder="Talla 7, 45cm..."
+                        required
+                      />
+                    </div>
+                  </div>
+
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                    <div>
+                      <label className="block text-sm font-medium text-platinum-300 mb-1.5">Gemas (opcional)</label>
+                      <input
+                        type="text"
+                        value={formData.gemstone}
+                        onChange={e => setFormData({ ...formData, gemstone: e.target.value })}
+                        className="luxury-input w-full py-2.5 px-3 rounded-lg"
+                        placeholder="Diamante 1ct..."
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-sm font-medium text-platinum-300 mb-1.5">Certificación (opcional)</label>
+                      <input
+                        type="text"
+                        value={formData.certification}
+                        onChange={e => setFormData({ ...formData, certification: e.target.value })}
+                        className="luxury-input w-full py-2.5 px-3 rounded-lg"
+                        placeholder="GIA Certificado..."
+                      />
+                    </div>
+                  </div>
+
+                  <div>
+                    <label className="block text-sm font-medium text-platinum-300 mb-1.5">Sucursal</label>
+                    <select
+                      value={formData.branchId}
+                      onChange={e => setFormData({ ...formData, branchId: e.target.value })}
+                      className="luxury-input w-full py-2.5 px-3 rounded-lg"
+                      required
+                    >
+                      <option value="">Seleccionar sucursal</option>
+                      {branches.map(branch => (
+                        <option key={branch.id} value={branch.id}>{branch.name}</option>
+                      ))}
+                    </select>
+                  </div>
+
+                  <div>
+                    <label className="block text-sm font-medium text-platinum-300 mb-1.5">Estado del Producto</label>
+                    <div className="grid grid-cols-3 gap-2">
+                      {[
+                        { value: 'available', label: 'Disponible' },
+                        { value: 'sold', label: 'Vendido' },
+                        { value: 'reserved', label: 'Reservado' },
+                      ].map(opt => (
+                        <button
+                          key={opt.value}
+                          type="button"
+                          onClick={() => setFormData({ ...formData, status: opt.value })}
+                          className={`px-3 py-2.5 text-sm rounded-lg border transition-all ${
+                            formData.status === opt.value
+                              ? statusBadge(opt.value) + ' ring-1 ring-gold-500/50'
+                              : 'border-platinum-700/30 text-platinum-400 hover:bg-white/5'
+                          }`}
+                        >
+                          {opt.label}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+
+                  <div className="luxury-card p-4 rounded-lg space-y-3">
+                    <label className="flex items-center cursor-pointer">
+                      <input
+                        type="checkbox"
+                        checked={formData.isCustomizable}
+                        onChange={e => setFormData({ ...formData, isCustomizable: e.target.checked })}
+                        className="mr-3 h-4 w-4 accent-gold-500"
+                      />
+                      <span className="text-sm text-platinum-200 flex items-center gap-2">
+                        <Sparkles className="h-4 w-4 text-gold-400" />
+                        Producto personalizable
+                      </span>
+                    </label>
+
+                    {formData.isCustomizable && (
+                      <div>
+                        <label className="block text-sm font-medium text-platinum-300 mb-1.5">
+                          Tiempo de elaboración (días)
+                        </label>
+                        <input
+                          type="number"
+                          value={formData.craftingTime}
+                          onChange={e => setFormData({ ...formData, craftingTime: e.target.value })}
+                          className="luxury-input w-full py-2.5 px-3 rounded-lg"
+                          min="1"
+                          placeholder="7"
+                        />
+                      </div>
+                    )}
+                  </div>
                 </div>
 
-                <div className="flex flex-col sm:flex-row space-y-2 sm:space-y-0 sm:space-x-4 pt-2 sticky bottom-0 bg-charcoal-900 -mx-4 sm:-mx-6 -mb-4 sm:-mb-6 px-4 sm:px-6 py-4 border-t border-platinum-700/30">
+                {/* Fixed Footer Buttons */}
+                <div className="flex-shrink-0 flex flex-col sm:flex-row space-y-2 sm:space-y-0 sm:space-x-4 px-4 sm:px-6 py-4 bg-charcoal-900 border-t border-platinum-700/30">
                   <button
                     type="button"
                     onClick={resetForm}
