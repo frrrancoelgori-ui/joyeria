@@ -1,7 +1,9 @@
 import React, { useState } from 'react';
-import { Plus, CreditCard as Edit2, Trash2, Package, DollarSign, ShoppingBag, X, Search, Sparkles, AlertTriangle } from 'lucide-react';
+import { motion, AnimatePresence } from 'framer-motion';
+import { Plus, CreditCard as Edit2, Trash2, Package, DollarSign, ShoppingBag, X, Search, Sparkles, AlertTriangle, Save, Check, Loader2 } from 'lucide-react';
 import { useApp } from '../context/AppContext';
 import { Product } from '../types/Product';
+import { ScrollReveal, StaggerGroup, StaggerItem } from '../components/ScrollReveal';
 
 type ProductFormData = Omit<Product, 'id'> & {
   price: string;
@@ -36,6 +38,9 @@ export function Admin() {
   const [searchTerm, setSearchTerm] = useState('');
   const [categoryFilter, setCategoryFilter] = useState('');
   const [branchFilter, setBranchFilter] = useState('');
+  const [saving, setSaving] = useState(false);
+  const [inlineStock, setInlineStock] = useState<Record<string, string>>({});
+  const [savingStock, setSavingStock] = useState<string | null>(null);
 
   const categories = Array.from(new Set(products.map(p => p.category))).sort();
 
@@ -50,6 +55,7 @@ export function Admin() {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    setSaving(true);
 
     const branch = branches.find(b => b.id === formData.branchId);
     const productData: Omit<Product, 'id'> = {
@@ -76,6 +82,7 @@ export function Admin() {
       await addProduct(productData);
     }
 
+    setSaving(false);
     resetForm();
   };
 
@@ -107,6 +114,20 @@ export function Admin() {
     setShowForm(true);
   };
 
+  const saveInlineStock = async (productId: string) => {
+    const newStock = parseInt(inlineStock[productId]);
+    if (isNaN(newStock)) return;
+    const product = products.find(p => p.id === productId);
+    if (!product || product.stock === newStock) {
+      setInlineStock(prev => { const c = { ...prev }; delete c[productId]; return c; });
+      return;
+    }
+    setSavingStock(productId);
+    await updateProduct({ ...product, stock: newStock });
+    setSavingStock(null);
+    setInlineStock(prev => { const c = { ...prev }; delete c[productId]; return c; });
+  };
+
   const totalProducts = products.length;
   const totalStock = products.reduce((sum, p) => sum + p.stock, 0);
   const totalValue = products.reduce((sum, p) => sum + p.price * p.stock, 0);
@@ -133,7 +154,7 @@ export function Admin() {
           </div>
           <button
             onClick={() => setShowForm(true)}
-            className="luxury-button w-full sm:w-auto px-5 sm:px-6 py-2.5 sm:py-3 rounded-lg flex items-center justify-center space-x-2"
+            className="luxury-button w-full sm:w-auto px-5 sm:px-6 py-2.5 sm:py-3 rounded-lg flex items-center justify-center gap-2"
           >
             <Plus className="h-5 w-5" />
             <span>Nuevo Producto</span>
@@ -141,93 +162,52 @@ export function Admin() {
         </div>
 
         {/* Stats Cards */}
-        <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4 md:gap-6 mb-6 sm:mb-8">
-          <div className="luxury-card p-4 sm:p-5 rounded-xl">
-            <div className="flex items-center justify-between">
-              <div className="min-w-0">
-                <p className="text-xs text-platinum-400 uppercase tracking-wider truncate">Productos</p>
-                <p className="text-xl sm:text-2xl md:text-3xl font-bold text-white mt-1">{totalProducts}</p>
-              </div>
-              <div className="p-2.5 sm:p-3 rounded-lg bg-gold-500/10 border border-gold-500/30 flex-shrink-0">
-                <Package className="h-5 w-5 sm:h-6 sm:w-6 text-gold-500" />
-              </div>
-            </div>
+        <ScrollReveal>
+          <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4 md:gap-6 mb-6 sm:mb-8">
+            <StatCard icon={Package} label="Productos" value={totalProducts} />
+            <StatCard icon={ShoppingBag} label="Stock Total" value={totalStock} />
+            <StatCard icon={DollarSign} label="Valor" value={`$${totalValue.toLocaleString()}`} gold />
+            <StatCard icon={AlertTriangle} label="Stock Bajo" value={lowStock} />
           </div>
-
-          <div className="luxury-card p-4 sm:p-5 rounded-xl">
-            <div className="flex items-center justify-between">
-              <div className="min-w-0">
-                <p className="text-xs text-platinum-400 uppercase tracking-wider truncate">Stock Total</p>
-                <p className="text-xl sm:text-2xl md:text-3xl font-bold text-white mt-1">{totalStock}</p>
-              </div>
-              <div className="p-2.5 sm:p-3 rounded-lg bg-silver-500/10 border border-silver-500/30 flex-shrink-0">
-                <ShoppingBag className="h-5 w-5 sm:h-6 sm:w-6 text-silver-400" />
-              </div>
-            </div>
-          </div>
-
-          <div className="luxury-card p-4 sm:p-5 rounded-xl">
-            <div className="flex items-center justify-between">
-              <div className="min-w-0">
-                <p className="text-xs text-platinum-400 uppercase tracking-wider truncate">Valor</p>
-                <p className="text-xl sm:text-2xl md:text-3xl font-bold text-gold-400 mt-1 truncate">
-                  ${totalValue.toLocaleString()}
-                </p>
-              </div>
-              <div className="p-2.5 sm:p-3 rounded-lg bg-platinum-500/10 border border-platinum-500/30 flex-shrink-0">
-                <DollarSign className="h-5 w-5 sm:h-6 sm:w-6 text-platinum-300" />
-              </div>
-            </div>
-          </div>
-
-          <div className="luxury-card p-4 sm:p-5 rounded-xl">
-            <div className="flex items-center justify-between">
-              <div className="min-w-0">
-                <p className="text-xs text-platinum-400 uppercase tracking-wider truncate">Stock Bajo</p>
-                <p className="text-xl sm:text-2xl md:text-3xl font-bold text-gold-400 mt-1">{lowStock}</p>
-              </div>
-              <div className="p-2.5 sm:p-3 rounded-lg bg-red-500/10 border border-red-500/30 flex-shrink-0">
-                <AlertTriangle className="h-5 w-5 sm:h-6 sm:w-6 text-red-400" />
-              </div>
-            </div>
-          </div>
-        </div>
+        </ScrollReveal>
 
         {/* Filters */}
-        <div className="luxury-card p-3 sm:p-4 md:p-5 rounded-xl mb-4 sm:mb-6">
-          <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 sm:gap-4">
-            <div className="relative">
-              <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-platinum-400" />
-              <input
-                type="text"
-                placeholder="Buscar producto..."
-                value={searchTerm}
-                onChange={e => setSearchTerm(e.target.value)}
-                className="luxury-input w-full pl-10 pr-3 py-2.5 rounded-lg"
-              />
+        <ScrollReveal>
+          <div className="luxury-card p-3 sm:p-4 md:p-5 rounded-xl mb-4 sm:mb-6">
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 sm:gap-4">
+              <div className="relative">
+                <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-platinum-400" />
+                <input
+                  type="text"
+                  placeholder="Buscar producto..."
+                  value={searchTerm}
+                  onChange={e => setSearchTerm(e.target.value)}
+                  className="luxury-input w-full pl-10 pr-3 py-2.5 rounded-lg"
+                />
+              </div>
+              <select
+                value={categoryFilter}
+                onChange={e => setCategoryFilter(e.target.value)}
+                className="luxury-input py-2.5 px-3 rounded-lg"
+              >
+                <option value="">Todas las categorías</option>
+                {categories.map(c => (
+                  <option key={c} value={c}>{c}</option>
+                ))}
+              </select>
+              <select
+                value={branchFilter}
+                onChange={e => setBranchFilter(e.target.value)}
+                className="luxury-input py-2.5 px-3 rounded-lg"
+              >
+                <option value="">Todas las sucursales</option>
+                {branches.map(b => (
+                  <option key={b.id} value={b.id}>{b.name}</option>
+                ))}
+              </select>
             </div>
-            <select
-              value={categoryFilter}
-              onChange={e => setCategoryFilter(e.target.value)}
-              className="luxury-input py-2.5 px-3 rounded-lg"
-            >
-              <option value="">Todas las categorías</option>
-              {categories.map(c => (
-                <option key={c} value={c}>{c}</option>
-              ))}
-            </select>
-            <select
-              value={branchFilter}
-              onChange={e => setBranchFilter(e.target.value)}
-              className="luxury-input py-2.5 px-3 rounded-lg"
-            >
-              <option value="">Todas las sucursales</option>
-              {branches.map(b => (
-                <option key={b.id} value={b.id}>{b.name}</option>
-              ))}
-            </select>
           </div>
-        </div>
+        </ScrollReveal>
 
         {/* Products Table — Desktop */}
         <div className="luxury-card rounded-xl overflow-hidden hidden md:block">
@@ -235,27 +215,13 @@ export function Admin() {
             <table className="w-full">
               <thead className="bg-black/30 border-b border-platinum-700/30">
                 <tr>
-                  <th className="px-6 py-4 text-left text-xs font-semibold text-gold-400 uppercase tracking-wider">
-                    Producto
-                  </th>
-                  <th className="px-6 py-4 text-left text-xs font-semibold text-gold-400 uppercase tracking-wider hidden lg:table-cell">
-                    Categoría
-                  </th>
-                  <th className="px-6 py-4 text-left text-xs font-semibold text-gold-400 uppercase tracking-wider hidden lg:table-cell">
-                    Material
-                  </th>
-                  <th className="px-6 py-4 text-left text-xs font-semibold text-gold-400 uppercase tracking-wider hidden xl:table-cell">
-                    Sucursal
-                  </th>
-                  <th className="px-6 py-4 text-left text-xs font-semibold text-gold-400 uppercase tracking-wider">
-                    Precio
-                  </th>
-                  <th className="px-6 py-4 text-left text-xs font-semibold text-gold-400 uppercase tracking-wider">
-                    Stock
-                  </th>
-                  <th className="px-6 py-4 text-right text-xs font-semibold text-gold-400 uppercase tracking-wider">
-                    Acciones
-                  </th>
+                  <th className="px-6 py-4 text-left text-xs font-semibold text-gold-400 uppercase tracking-wider">Producto</th>
+                  <th className="px-6 py-4 text-left text-xs font-semibold text-gold-400 uppercase tracking-wider hidden lg:table-cell">Categoría</th>
+                  <th className="px-6 py-4 text-left text-xs font-semibold text-gold-400 uppercase tracking-wider hidden lg:table-cell">Material</th>
+                  <th className="px-6 py-4 text-left text-xs font-semibold text-gold-400 uppercase tracking-wider hidden xl:table-cell">Sucursal</th>
+                  <th className="px-6 py-4 text-left text-xs font-semibold text-gold-400 uppercase tracking-wider">Precio</th>
+                  <th className="px-6 py-4 text-left text-xs font-semibold text-gold-400 uppercase tracking-wider">Stock</th>
+                  <th className="px-6 py-4 text-right text-xs font-semibold text-gold-400 uppercase tracking-wider">Acciones</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-platinum-700/20">
@@ -306,9 +272,42 @@ export function Admin() {
                         </span>
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap">
-                        <span className={`px-2.5 py-1 text-xs font-medium rounded-lg border ${stockBadge(product.stock)}`}>
-                          {product.stock}
-                        </span>
+                        {inlineStock[product.id] !== undefined ? (
+                          <div className="flex items-center gap-1">
+                            <input
+                              type="number"
+                              value={inlineStock[product.id]}
+                              onChange={e => setInlineStock({ ...inlineStock, [product.id]: e.target.value })}
+                              className="luxury-input w-16 py-1 px-2 rounded text-sm"
+                              autoFocus
+                            />
+                            <button
+                              onClick={() => saveInlineStock(product.id)}
+                              disabled={savingStock === product.id}
+                              className="p-1 text-green-400 hover:bg-green-500/10 rounded transition-colors"
+                            >
+                              {savingStock === product.id ? (
+                                <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                              ) : (
+                                <Check className="h-3.5 w-3.5" />
+                              )}
+                            </button>
+                            <button
+                              onClick={() => setInlineStock(prev => { const c = { ...prev }; delete c[product.id]; return c; })}
+                              className="p-1 text-red-400 hover:bg-red-500/10 rounded transition-colors"
+                            >
+                              <X className="h-3.5 w-3.5" />
+                            </button>
+                          </div>
+                        ) : (
+                          <button
+                            onClick={() => setInlineStock({ ...inlineStock, [product.id]: product.stock.toString() })}
+                            className={`px-2.5 py-1 text-xs font-medium rounded-lg border transition-all hover:scale-105 ${stockBadge(product.stock)}`}
+                            title="Click para editar"
+                          >
+                            {product.stock}
+                          </button>
+                        )}
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap text-right">
                         <div className="flex items-center justify-end space-x-2">
@@ -337,7 +336,7 @@ export function Admin() {
         </div>
 
         {/* Products — Mobile Cards */}
-        <div className="md:hidden space-y-3">
+        <StaggerGroup className="md:hidden space-y-3">
           {filteredProducts.length === 0 ? (
             <div className="luxury-card rounded-xl p-8 text-center">
               <Package className="h-12 w-12 text-platinum-600 mx-auto mb-3" />
@@ -345,304 +344,365 @@ export function Admin() {
             </div>
           ) : (
             filteredProducts.map(product => (
-              <div key={product.id} className="luxury-card rounded-xl p-4">
-                <div className="flex items-start gap-3">
-                  <img
-                    src={product.image}
-                    alt={product.name}
-                    className="h-16 w-16 object-cover rounded-lg border border-platinum-700/30 flex-shrink-0"
-                  />
-                  <div className="flex-1 min-w-0">
-                    <div className="flex items-center gap-2">
-                      <h3 className="text-sm font-medium text-white truncate">{product.name}</h3>
-                      {product.isCustomizable && (
-                        <Sparkles className="h-3 w-3 text-gold-400 flex-shrink-0" />
-                      )}
-                    </div>
-                    <p className="text-xs text-platinum-400 line-clamp-2 mt-0.5">{product.description}</p>
-                    <div className="flex flex-wrap items-center gap-2 mt-2">
-                      <span className="px-2 py-0.5 text-xs font-medium bg-gold-500/10 text-gold-300 rounded border border-gold-500/30">
-                        {product.category}
-                      </span>
-                      <span className="text-xs text-platinum-400">{product.material}</span>
-                    </div>
-                    <div className="flex items-center justify-between mt-3">
-                      <div className="flex items-center gap-3">
-                        <span className="text-sm font-semibold text-gold-400">
-                          ${product.price.toLocaleString()}
-                        </span>
-                        <span className={`px-2 py-0.5 text-xs font-medium rounded border ${stockBadge(product.stock)}`}>
-                          Stock: {product.stock}
-                        </span>
+              <StaggerItem key={product.id}>
+                <div className="luxury-card rounded-xl p-4">
+                  <div className="flex items-start gap-3">
+                    <img
+                      src={product.image}
+                      alt={product.name}
+                      className="h-16 w-16 object-cover rounded-lg border border-platinum-700/30 flex-shrink-0"
+                    />
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-center gap-2">
+                        <h3 className="text-sm font-medium text-white truncate">{product.name}</h3>
+                        {product.isCustomizable && (
+                          <Sparkles className="h-3 w-3 text-gold-400 flex-shrink-0" />
+                        )}
                       </div>
-                      <div className="flex items-center gap-1">
-                        <button
-                          onClick={() => handleEdit(product)}
-                          className="p-2 text-silver-400 hover:text-gold-400 hover:bg-white/5 rounded-lg transition-colors"
-                        >
-                          <Edit2 className="h-4 w-4" />
-                        </button>
-                        <button
-                          onClick={() => deleteProduct(product.id)}
-                          className="p-2 text-red-400 hover:text-red-300 hover:bg-red-500/10 rounded-lg transition-colors"
-                        >
-                          <Trash2 className="h-4 w-4" />
-                        </button>
+                      <p className="text-xs text-platinum-400 line-clamp-2 mt-0.5">{product.description}</p>
+                      <div className="flex flex-wrap items-center gap-2 mt-2">
+                        <span className="px-2 py-0.5 text-xs font-medium bg-gold-500/10 text-gold-300 rounded border border-gold-500/30">
+                          {product.category}
+                        </span>
+                        <span className="text-xs text-platinum-400">{product.material}</span>
+                      </div>
+                      <div className="flex items-center justify-between mt-3">
+                        <div className="flex items-center gap-3">
+                          <span className="text-sm font-semibold text-gold-400">
+                            ${product.price.toLocaleString()}
+                          </span>
+                          {inlineStock[product.id] !== undefined ? (
+                            <div className="flex items-center gap-1">
+                              <input
+                                type="number"
+                                value={inlineStock[product.id]}
+                                onChange={e => setInlineStock({ ...inlineStock, [product.id]: e.target.value })}
+                                className="luxury-input w-14 py-1 px-2 rounded text-xs"
+                                autoFocus
+                              />
+                              <button
+                                onClick={() => saveInlineStock(product.id)}
+                                disabled={savingStock === product.id}
+                                className="p-1 text-green-400"
+                              >
+                                {savingStock === product.id ? (
+                                  <Loader2 className="h-3 w-3 animate-spin" />
+                                ) : (
+                                  <Check className="h-3 w-3" />
+                                )}
+                              </button>
+                              <button
+                                onClick={() => setInlineStock(prev => { const c = { ...prev }; delete c[product.id]; return c; })}
+                                className="p-1 text-red-400"
+                              >
+                                <X className="h-3 w-3" />
+                              </button>
+                            </div>
+                          ) : (
+                            <button
+                              onClick={() => setInlineStock({ ...inlineStock, [product.id]: product.stock.toString() })}
+                              className={`px-2 py-0.5 text-xs font-medium rounded border ${stockBadge(product.stock)}`}
+                            >
+                              Stock: {product.stock}
+                            </button>
+                          )}
+                        </div>
+                        <div className="flex items-center gap-1">
+                          <button
+                            onClick={() => handleEdit(product)}
+                            className="p-2 text-silver-400 hover:text-gold-400 hover:bg-white/5 rounded-lg transition-colors"
+                          >
+                            <Edit2 className="h-4 w-4" />
+                          </button>
+                          <button
+                            onClick={() => deleteProduct(product.id)}
+                            className="p-2 text-red-400 hover:text-red-300 hover:bg-red-500/10 rounded-lg transition-colors"
+                          >
+                            <Trash2 className="h-4 w-4" />
+                          </button>
+                        </div>
                       </div>
                     </div>
                   </div>
                 </div>
-              </div>
+              </StaggerItem>
             ))
           )}
-        </div>
+        </StaggerGroup>
       </div>
 
       {/* Product Form Modal */}
-      {showForm && (
-        <div className="fixed inset-0 bg-black/70 backdrop-blur-sm flex items-end sm:items-center justify-center z-50 p-0 sm:p-4">
-          <div className="bg-charcoal-900 border border-platinum-700/30 rounded-t-2xl sm:rounded-2xl shadow-2xl max-w-2xl w-full max-h-[92vh] sm:max-h-[90vh] overflow-y-auto">
-            <div className="sticky top-0 bg-charcoal-900 border-b border-platinum-700/30 px-4 sm:px-6 py-4 flex items-center justify-between z-10">
-              <h2 className="font-luxury text-xl sm:text-2xl font-semibold text-gradient-gold tracking-wide">
-                {editingProduct ? 'Editar Producto' : 'Nuevo Producto'}
-              </h2>
-              <button
-                onClick={resetForm}
-                className="p-2 text-platinum-400 hover:text-white hover:bg-white/5 rounded-lg transition-colors"
-              >
-                <X className="h-5 w-5" />
-              </button>
-            </div>
-
-            <form onSubmit={handleSubmit} className="p-4 sm:p-6 space-y-4">
-              <div>
-                <label className="block text-sm font-medium text-platinum-300 mb-1.5">
-                  Nombre
-                </label>
-                <input
-                  type="text"
-                  value={formData.name}
-                  onChange={e => setFormData({ ...formData, name: e.target.value })}
-                  className="luxury-input w-full py-2.5 px-3 rounded-lg"
-                  required
-                />
-              </div>
-
-              <div>
-                <label className="block text-sm font-medium text-platinum-300 mb-1.5">
-                  Descripción
-                </label>
-                <textarea
-                  value={formData.description}
-                  onChange={e => setFormData({ ...formData, description: e.target.value })}
-                  className="luxury-input w-full py-2.5 px-3 rounded-lg resize-none"
-                  rows={3}
-                  required
-                />
-              </div>
-
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                <div>
-                  <label className="block text-sm font-medium text-platinum-300 mb-1.5">
-                    Precio ($)
-                  </label>
-                  <input
-                    type="number"
-                    value={formData.price}
-                    onChange={e => setFormData({ ...formData, price: e.target.value })}
-                    className="luxury-input w-full py-2.5 px-3 rounded-lg"
-                    required
-                  />
-                </div>
-                <div>
-                  <label className="block text-sm font-medium text-platinum-300 mb-1.5">
-                    Stock
-                  </label>
-                  <input
-                    type="number"
-                    value={formData.stock}
-                    onChange={e => setFormData({ ...formData, stock: e.target.value })}
-                    className="luxury-input w-full py-2.5 px-3 rounded-lg"
-                    required
-                  />
-                </div>
-              </div>
-
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                <div>
-                  <label className="block text-sm font-medium text-platinum-300 mb-1.5">
-                    Categoría
-                  </label>
-                  <input
-                    type="text"
-                    value={formData.category}
-                    onChange={e => setFormData({ ...formData, category: e.target.value })}
-                    className="luxury-input w-full py-2.5 px-3 rounded-lg"
-                    placeholder="Anillos, Collares..."
-                    required
-                  />
-                </div>
-                <div>
-                  <label className="block text-sm font-medium text-platinum-300 mb-1.5">
-                    Material
-                  </label>
-                  <input
-                    type="text"
-                    value={formData.material}
-                    onChange={e => setFormData({ ...formData, material: e.target.value })}
-                    className="luxury-input w-full py-2.5 px-3 rounded-lg"
-                    placeholder="Oro 18k, Plata 925..."
-                    required
-                  />
-                </div>
-              </div>
-
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                <div>
-                  <label className="block text-sm font-medium text-platinum-300 mb-1.5">
-                    Peso (gramos)
-                  </label>
-                  <input
-                    type="number"
-                    step="0.1"
-                    value={formData.weight}
-                    onChange={e => setFormData({ ...formData, weight: e.target.value })}
-                    className="luxury-input w-full py-2.5 px-3 rounded-lg"
-                    required
-                  />
-                </div>
-                <div>
-                  <label className="block text-sm font-medium text-platinum-300 mb-1.5">
-                    Tamaño
-                  </label>
-                  <input
-                    type="text"
-                    value={formData.size}
-                    onChange={e => setFormData({ ...formData, size: e.target.value })}
-                    className="luxury-input w-full py-2.5 px-3 rounded-lg"
-                    placeholder="Talla 7, 45cm..."
-                    required
-                  />
-                </div>
-              </div>
-
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                <div>
-                  <label className="block text-sm font-medium text-platinum-300 mb-1.5">
-                    Gemas (opcional)
-                  </label>
-                  <input
-                    type="text"
-                    value={formData.gemstone}
-                    onChange={e => setFormData({ ...formData, gemstone: e.target.value })}
-                    className="luxury-input w-full py-2.5 px-3 rounded-lg"
-                    placeholder="Diamante 1ct..."
-                  />
-                </div>
-                <div>
-                  <label className="block text-sm font-medium text-platinum-300 mb-1.5">
-                    Certificación (opcional)
-                  </label>
-                  <input
-                    type="text"
-                    value={formData.certification}
-                    onChange={e => setFormData({ ...formData, certification: e.target.value })}
-                    className="luxury-input w-full py-2.5 px-3 rounded-lg"
-                    placeholder="GIA Certificado..."
-                  />
-                </div>
-              </div>
-
-              <div>
-                <label className="block text-sm font-medium text-platinum-300 mb-1.5">
-                  Sucursal
-                </label>
-                <select
-                  value={formData.branchId}
-                  onChange={e => setFormData({ ...formData, branchId: e.target.value })}
-                  className="luxury-input w-full py-2.5 px-3 rounded-lg"
-                  required
+      <AnimatePresence>
+        {showForm && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 bg-black/70 backdrop-blur-sm flex items-end sm:items-center justify-center z-50 p-0 sm:p-4"
+          >
+            <motion.div
+              initial={{ y: 50, opacity: 0 }}
+              animate={{ y: 0, opacity: 1 }}
+              exit={{ y: 50, opacity: 0 }}
+              transition={{ type: 'spring', damping: 25, stiffness: 300 }}
+              className="bg-charcoal-900 border border-platinum-700/30 rounded-t-2xl sm:rounded-2xl shadow-2xl max-w-2xl w-full max-h-[92vh] overflow-y-auto"
+            >
+              <div className="sticky top-0 bg-charcoal-900 border-b border-platinum-700/30 px-4 sm:px-6 py-4 flex items-center justify-between z-10">
+                <h2 className="font-luxury text-xl sm:text-2xl font-semibold text-gradient-gold tracking-wide">
+                  {editingProduct ? 'Editar Producto' : 'Nuevo Producto'}
+                </h2>
+                <button
+                  onClick={resetForm}
+                  className="p-2 text-platinum-400 hover:text-white hover:bg-white/5 rounded-lg transition-colors"
                 >
-                  <option value="">Seleccionar sucursal</option>
-                  {branches.map(branch => (
-                    <option key={branch.id} value={branch.id}>
-                      {branch.name}
-                    </option>
-                  ))}
-                </select>
+                  <X className="h-5 w-5" />
+                </button>
               </div>
 
-              <div className="luxury-card p-4 rounded-lg space-y-3">
-                <label className="flex items-center cursor-pointer">
-                  <input
-                    type="checkbox"
-                    checked={formData.isCustomizable}
-                    onChange={e => setFormData({ ...formData, isCustomizable: e.target.checked })}
-                    className="mr-3 h-4 w-4 accent-gold-500"
-                  />
-                  <span className="text-sm text-platinum-200 flex items-center gap-2">
-                    <Sparkles className="h-4 w-4 text-gold-400" />
-                    Producto personalizable
-                  </span>
-                </label>
-
-                {formData.isCustomizable && (
-                  <div>
-                    <label className="block text-sm font-medium text-platinum-300 mb-1.5">
-                      Tiempo de elaboración (días)
-                    </label>
-                    <input
-                      type="number"
-                      value={formData.craftingTime}
-                      onChange={e => setFormData({ ...formData, craftingTime: e.target.value })}
-                      className="luxury-input w-full py-2.5 px-3 rounded-lg"
-                      min="1"
-                      placeholder="7"
-                    />
+              <form onSubmit={handleSubmit} className="p-4 sm:p-6 space-y-4">
+                {/* Image Preview */}
+                {formData.image && (
+                  <div className="relative h-40 rounded-lg overflow-hidden border border-platinum-700/30">
+                    <img src={formData.image} alt="preview" className="w-full h-full object-cover" />
+                    <div className="absolute inset-0 bg-gradient-to-t from-charcoal-900/80 to-transparent" />
                   </div>
                 )}
-              </div>
 
-              <div>
-                <label className="block text-sm font-medium text-platinum-300 mb-1.5">
-                  URL de Imagen
-                </label>
-                <input
-                  type="url"
-                  value={formData.image}
-                  onChange={e => setFormData({ ...formData, image: e.target.value })}
-                  className="luxury-input w-full py-2.5 px-3 rounded-lg"
-                  placeholder="https://..."
-                  required
-                />
-                {formData.image && (
-                  <img
-                    src={formData.image}
-                    alt="preview"
-                    className="mt-3 h-24 w-24 object-cover rounded-lg border border-platinum-700/30"
+                <div>
+                  <label className="block text-sm font-medium text-platinum-300 mb-1.5">
+                    URL de Imagen
+                  </label>
+                  <input
+                    type="url"
+                    value={formData.image}
+                    onChange={e => setFormData({ ...formData, image: e.target.value })}
+                    className="luxury-input w-full py-2.5 px-3 rounded-lg"
+                    placeholder="https://..."
+                    required
                   />
-                )}
-              </div>
+                </div>
 
-              <div className="flex flex-col sm:flex-row space-y-2 sm:space-y-0 sm:space-x-4 pt-2 sticky bottom-0 bg-charcoal-900 -mx-4 sm:-mx-6 -mb-4 sm:-mb-6 px-4 sm:px-6 py-4 border-t border-platinum-700/30">
-                <button
-                  type="button"
-                  onClick={resetForm}
-                  className="w-full sm:flex-1 px-4 py-2.5 border border-platinum-600/50 text-platinum-200 rounded-lg hover:bg-white/5 transition-colors"
-                >
-                  Cancelar
-                </button>
-                <button
-                  type="submit"
-                  className="w-full sm:flex-1 luxury-button px-4 py-2.5 rounded-lg"
-                >
-                  {editingProduct ? 'Actualizar' : 'Crear Producto'}
-                </button>
-              </div>
-            </form>
-          </div>
+                <div>
+                  <label className="block text-sm font-medium text-platinum-300 mb-1.5">
+                    Nombre
+                  </label>
+                  <input
+                    type="text"
+                    value={formData.name}
+                    onChange={e => setFormData({ ...formData, name: e.target.value })}
+                    className="luxury-input w-full py-2.5 px-3 rounded-lg"
+                    required
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-platinum-300 mb-1.5">
+                    Descripción
+                  </label>
+                  <textarea
+                    value={formData.description}
+                    onChange={e => setFormData({ ...formData, description: e.target.value })}
+                    className="luxury-input w-full py-2.5 px-3 rounded-lg resize-none"
+                    rows={3}
+                    required
+                  />
+                </div>
+
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                  <div>
+                    <label className="block text-sm font-medium text-platinum-300 mb-1.5">Precio ($)</label>
+                    <input
+                      type="number"
+                      value={formData.price}
+                      onChange={e => setFormData({ ...formData, price: e.target.value })}
+                      className="luxury-input w-full py-2.5 px-3 rounded-lg"
+                      required
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-platinum-300 mb-1.5">Stock</label>
+                    <input
+                      type="number"
+                      value={formData.stock}
+                      onChange={e => setFormData({ ...formData, stock: e.target.value })}
+                      className="luxury-input w-full py-2.5 px-3 rounded-lg"
+                      required
+                    />
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                  <div>
+                    <label className="block text-sm font-medium text-platinum-300 mb-1.5">Categoría</label>
+                    <input
+                      type="text"
+                      value={formData.category}
+                      onChange={e => setFormData({ ...formData, category: e.target.value })}
+                      className="luxury-input w-full py-2.5 px-3 rounded-lg"
+                      placeholder="Anillos, Collares..."
+                      list="category-suggestions"
+                      required
+                    />
+                    <datalist id="category-suggestions">
+                      {categories.map(c => <option key={c} value={c} />)}
+                    </datalist>
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-platinum-300 mb-1.5">Material</label>
+                    <input
+                      type="text"
+                      value={formData.material}
+                      onChange={e => setFormData({ ...formData, material: e.target.value })}
+                      className="luxury-input w-full py-2.5 px-3 rounded-lg"
+                      placeholder="Oro 18k, Plata 925..."
+                      required
+                    />
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                  <div>
+                    <label className="block text-sm font-medium text-platinum-300 mb-1.5">Peso (gramos)</label>
+                    <input
+                      type="number"
+                      step="0.1"
+                      value={formData.weight}
+                      onChange={e => setFormData({ ...formData, weight: e.target.value })}
+                      className="luxury-input w-full py-2.5 px-3 rounded-lg"
+                      required
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-platinum-300 mb-1.5">Tamaño</label>
+                    <input
+                      type="text"
+                      value={formData.size}
+                      onChange={e => setFormData({ ...formData, size: e.target.value })}
+                      className="luxury-input w-full py-2.5 px-3 rounded-lg"
+                      placeholder="Talla 7, 45cm..."
+                      required
+                    />
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                  <div>
+                    <label className="block text-sm font-medium text-platinum-300 mb-1.5">Gemas (opcional)</label>
+                    <input
+                      type="text"
+                      value={formData.gemstone}
+                      onChange={e => setFormData({ ...formData, gemstone: e.target.value })}
+                      className="luxury-input w-full py-2.5 px-3 rounded-lg"
+                      placeholder="Diamante 1ct..."
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-platinum-300 mb-1.5">Certificación (opcional)</label>
+                    <input
+                      type="text"
+                      value={formData.certification}
+                      onChange={e => setFormData({ ...formData, certification: e.target.value })}
+                      className="luxury-input w-full py-2.5 px-3 rounded-lg"
+                      placeholder="GIA Certificado..."
+                    />
+                  </div>
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-platinum-300 mb-1.5">Sucursal</label>
+                  <select
+                    value={formData.branchId}
+                    onChange={e => setFormData({ ...formData, branchId: e.target.value })}
+                    className="luxury-input w-full py-2.5 px-3 rounded-lg"
+                    required
+                  >
+                    <option value="">Seleccionar sucursal</option>
+                    {branches.map(branch => (
+                      <option key={branch.id} value={branch.id}>{branch.name}</option>
+                    ))}
+                  </select>
+                </div>
+
+                <div className="luxury-card p-4 rounded-lg space-y-3">
+                  <label className="flex items-center cursor-pointer">
+                    <input
+                      type="checkbox"
+                      checked={formData.isCustomizable}
+                      onChange={e => setFormData({ ...formData, isCustomizable: e.target.checked })}
+                      className="mr-3 h-4 w-4 accent-gold-500"
+                    />
+                    <span className="text-sm text-platinum-200 flex items-center gap-2">
+                      <Sparkles className="h-4 w-4 text-gold-400" />
+                      Producto personalizable
+                    </span>
+                  </label>
+
+                  {formData.isCustomizable && (
+                    <div>
+                      <label className="block text-sm font-medium text-platinum-300 mb-1.5">
+                        Tiempo de elaboración (días)
+                      </label>
+                      <input
+                        type="number"
+                        value={formData.craftingTime}
+                        onChange={e => setFormData({ ...formData, craftingTime: e.target.value })}
+                        className="luxury-input w-full py-2.5 px-3 rounded-lg"
+                        min="1"
+                        placeholder="7"
+                      />
+                    </div>
+                  )}
+                </div>
+
+                <div className="flex flex-col sm:flex-row space-y-2 sm:space-y-0 sm:space-x-4 pt-2 sticky bottom-0 bg-charcoal-900 -mx-4 sm:-mx-6 -mb-4 sm:-mb-6 px-4 sm:px-6 py-4 border-t border-platinum-700/30">
+                  <button
+                    type="button"
+                    onClick={resetForm}
+                    className="w-full sm:flex-1 px-4 py-2.5 border border-platinum-600/50 text-platinum-200 rounded-lg hover:bg-white/5 transition-colors"
+                  >
+                    Cancelar
+                  </button>
+                  <button
+                    type="submit"
+                    disabled={saving}
+                    className="w-full sm:flex-1 luxury-button px-4 py-2.5 rounded-lg flex items-center justify-center gap-2 disabled:opacity-50"
+                  >
+                    {saving ? (
+                      <>
+                        <Loader2 className="h-4 w-4 animate-spin" />
+                        <span>Guardando...</span>
+                      </>
+                    ) : (
+                      <>
+                        <Save className="h-4 w-4" />
+                        <span>{editingProduct ? 'Actualizar' : 'Crear Producto'}</span>
+                      </>
+                    )}
+                  </button>
+                </div>
+              </form>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+    </div>
+  );
+}
+
+function StatCard({ icon: Icon, label, value, gold }: { icon: React.ComponentType<{ className?: string }>; label: string; value: string | number; gold?: boolean }) {
+  return (
+    <div className="luxury-card p-4 sm:p-5 rounded-xl">
+      <div className="flex items-center justify-between">
+        <div className="min-w-0">
+          <p className="text-xs text-platinum-400 uppercase tracking-wider truncate">{label}</p>
+          <p className={`text-xl sm:text-2xl md:text-3xl font-luxury font-semibold mt-1 truncate ${gold ? 'text-gold-400' : 'text-white'}`}>
+            {value}
+          </p>
         </div>
-      )}
+        <div className="p-2.5 sm:p-3 rounded-lg bg-gold-500/10 border border-gold-500/30 flex-shrink-0">
+          <Icon className="h-5 w-5 sm:h-6 sm:w-6 text-gold-400" />
+        </div>
+      </div>
     </div>
   );
 }

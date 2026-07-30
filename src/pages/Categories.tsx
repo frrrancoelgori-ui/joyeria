@@ -1,320 +1,221 @@
-import React, { useState } from 'react';
+import React, { useState, useMemo } from 'react';
 import { motion } from 'framer-motion';
-import { Plus, Edit, Trash2, Tag, Package } from 'lucide-react';
+import { Tag, Package, DollarSign, ShoppingBag, TrendingUp, Sparkles } from 'lucide-react';
 import { useApp } from '../context/AppContext';
-import Swal from 'sweetalert2';
-
-interface Category {
-  id: string;
-  name: string;
-  description: string;
-  color: string;
-}
+import { ScrollReveal, StaggerGroup, StaggerItem } from '../components/ScrollReveal';
 
 export function Categories() {
   const { products } = useApp();
-  const [categories, setCategories] = useState<Category[]>([
-    { id: '1', name: 'Electrónicos', description: 'Dispositivos electrónicos y gadgets', color: '#3B82F6' },
-    { id: '2', name: 'Computadoras', description: 'Laptops, PCs y accesorios', color: '#10B981' },
-    { id: '3', name: 'Audio', description: 'Auriculares, parlantes y audio', color: '#F59E0B' },
-    { id: '4', name: 'Wearables', description: 'Relojes inteligentes y fitness', color: '#EF4444' }
-  ]);
-  
-  const [showForm, setShowForm] = useState(false);
-  const [editingCategory, setEditingCategory] = useState<Category | null>(null);
-  const [formData, setFormData] = useState({
-    name: '',
-    description: '',
-    color: '#3B82F6'
-  });
+  const [selectedCategory, setSelectedCategory] = useState<string | null>(null);
 
-  const handleSubmit = (e: React.FormEvent) => {
-    e.preventDefault();
-    
-    if (editingCategory) {
-      setCategories(prev => prev.map(cat => 
-        cat.id === editingCategory.id 
-          ? { ...formData, id: editingCategory.id }
-          : cat
-      ));
-      Swal.fire({
-        title: '¡Actualizado!',
-        text: 'La categoría ha sido actualizada correctamente',
-        icon: 'success',
-        timer: 1500,
-        showConfirmButton: false
-      });
-    } else {
-      const newCategory = {
-        ...formData,
-        id: Date.now().toString()
-      };
-      setCategories(prev => [...prev, newCategory]);
-      Swal.fire({
-        title: '¡Categoría creada!',
-        text: 'Nueva categoría agregada al sistema',
-        icon: 'success',
-        timer: 1500,
-        showConfirmButton: false
-      });
-    }
-
-    resetForm();
-  };
-
-  const resetForm = () => {
-    setFormData({
-      name: '',
-      description: '',
-      color: '#3B82F6'
-    });
-    setShowForm(false);
-    setEditingCategory(null);
-  };
-
-  const handleEdit = (category: Category) => {
-    setEditingCategory(category);
-    setFormData({
-      name: category.name,
-      description: category.description,
-      color: category.color
-    });
-    setShowForm(true);
-  };
-
-  const handleDelete = (id: string) => {
-    const category = categories.find(c => c.id === id);
-    const productsInCategory = products.filter(p => p.category === category?.name).length;
-
-    if (productsInCategory > 0) {
-      Swal.fire({
-        title: 'No se puede eliminar',
-        text: `Esta categoría tiene ${productsInCategory} productos asociados`,
-        icon: 'warning'
-      });
-      return;
-    }
-
-    Swal.fire({
-      title: '¿Eliminar categoría?',
-      text: 'Esta acción no se puede deshacer',
-      icon: 'warning',
-      showCancelButton: true,
-      confirmButtonColor: '#EF4444',
-      cancelButtonColor: '#6B7280',
-      confirmButtonText: 'Sí, eliminar',
-      cancelButtonText: 'Cancelar'
-    }).then((result) => {
-      if (result.isConfirmed) {
-        setCategories(prev => prev.filter(c => c.id !== id));
-        Swal.fire({
-          title: '¡Eliminada!',
-          text: 'La categoría ha sido eliminada',
-          icon: 'success',
-          timer: 1500,
-          showConfirmButton: false
-        });
+  const categories = useMemo(() => {
+    const map = new Map<string, { name: string; count: number; stock: number; value: number; products: typeof products }>();
+    for (const p of products) {
+      const key = p.category || 'Sin Categoría';
+      if (!map.has(key)) {
+        map.set(key, { name: key, count: 0, stock: 0, value: 0, products: [] });
       }
-    });
-  };
+      const cat = map.get(key)!;
+      cat.count++;
+      cat.stock += p.stock;
+      cat.value += p.price * p.stock;
+      cat.products.push(p);
+    }
+    return Array.from(map.values()).sort((a, b) => b.value - a.value);
+  }, [products]);
 
-  const getCategoryStats = (categoryName: string) => {
-    const categoryProducts = products.filter(p => p.category === categoryName);
-    return {
-      productCount: categoryProducts.length,
-      totalValue: categoryProducts.reduce((sum, p) => sum + (p.price * p.stock), 0),
-      totalStock: categoryProducts.reduce((sum, p) => sum + p.stock, 0)
-    };
-  };
+  const totalValue = categories.reduce((sum, c) => sum + c.value, 0);
+  const totalProducts = categories.reduce((sum, c) => sum + c.count, 0);
+  const totalStock = categories.reduce((sum, c) => sum + c.stock, 0);
 
   return (
     <motion.div
       initial={{ opacity: 0 }}
       animate={{ opacity: 1 }}
       transition={{ duration: 0.5 }}
-      className="min-h-screen bg-gray-50"
+      className="min-h-screen bg-gradient-to-b from-charcoal-950 via-charcoal-900 to-black text-white"
     >
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-        <div className="flex justify-between items-center mb-8">
-          <motion.h1
-            initial={{ x: -20 }}
-            animate={{ x: 0 }}
-            className="text-3xl font-bold text-gray-900"
-          >
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6 sm:py-8">
+        {/* Header */}
+        <div className="mb-6 sm:mb-8">
+          <h1 className="font-luxury text-2xl sm:text-3xl md:text-4xl font-semibold text-gradient-gold tracking-wide">
             Gestión de Categorías
-          </motion.h1>
-          <motion.button
-            whileHover={{ scale: 1.05 }}
-            whileTap={{ scale: 0.95 }}
-            onClick={() => setShowForm(true)}
-            className="bg-blue-600 text-white px-6 py-3 rounded-lg hover:bg-blue-700 transition-colors flex items-center space-x-2"
-          >
-            <Plus className="h-5 w-5" />
-            <span>Nueva Categoría</span>
-          </motion.button>
+          </h1>
+          <p className="text-platinum-400 text-sm mt-1 font-light tracking-wide">
+            Vista general del catálogo por categoría
+          </p>
         </div>
 
-        {/* Categories Grid */}
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-          {categories.map((category, index) => {
-            const stats = getCategoryStats(category.name);
-            return (
-              <motion.div
-                key={category.id}
-                initial={{ opacity: 0, y: 20 }}
-                animate={{ opacity: 1, y: 0 }}
-                transition={{ delay: index * 0.1 }}
-                className="bg-white rounded-xl shadow-lg overflow-hidden hover:shadow-xl transition-all duration-300"
-              >
-                <div 
-                  className="h-4"
-                  style={{ backgroundColor: category.color }}
-                />
-                
-                <div className="p-6">
-                  <div className="flex items-center justify-between mb-4">
-                    <div className="flex items-center space-x-3">
-                      <div 
-                        className="w-10 h-10 rounded-lg flex items-center justify-center"
-                        style={{ backgroundColor: `${category.color}20` }}
-                      >
-                        <Tag className="h-5 w-5" style={{ color: category.color }} />
-                      </div>
-                      <div>
-                        <h3 className="text-lg font-semibold text-gray-900">
-                          {category.name}
+        {/* Summary Stats */}
+        <ScrollReveal>
+          <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4 md:gap-6 mb-6 sm:mb-8">
+            <SummaryCard icon={Tag} label="Categorías" value={categories.length} />
+            <SummaryCard icon={Package} label="Productos" value={totalProducts} />
+            <SummaryCard icon={ShoppingBag} label="Stock Total" value={totalStock} />
+            <SummaryCard icon={DollarSign} label="Valor Total" value={`$${totalValue.toLocaleString()}`} gold />
+          </div>
+        </ScrollReveal>
+
+        {/* Category Cards */}
+        {categories.length === 0 ? (
+          <div className="luxury-card rounded-xl p-12 text-center">
+            <Tag className="h-12 w-12 text-platinum-600 mx-auto mb-3" />
+            <p className="text-platinum-400">No hay categorías disponibles</p>
+          </div>
+        ) : (
+          <StaggerGroup className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-6">
+            {categories.map((cat) => (
+              <StaggerItem key={cat.name}>
+                <button
+                  onClick={() => setSelectedCategory(selectedCategory === cat.name ? null : cat.name)}
+                  className="luxury-card rounded-xl overflow-hidden w-full text-left hover:border-gold-500/40 transition-all duration-300"
+                >
+                  <div className="h-1.5 bg-gradient-to-r from-gold-600 via-gold-400 to-gold-600" />
+                  <div className="p-5 sm:p-6">
+                    <div className="flex items-center justify-between mb-4">
+                      <div className="flex items-center gap-3">
+                        <div className="p-2.5 rounded-lg bg-gold-500/10 border border-gold-500/30">
+                          <Tag className="h-5 w-5 text-gold-400" />
+                        </div>
+                        <h3 className="font-luxury text-lg sm:text-xl font-semibold text-white">
+                          {cat.name}
                         </h3>
-                        <p className="text-sm text-gray-500">
-                          {category.description}
+                      </div>
+                      {cat.products.some(p => p.isCustomizable) && (
+                        <Sparkles className="h-4 w-4 text-gold-400" />
+                      )}
+                    </div>
+
+                    <div className="grid grid-cols-3 gap-3 mb-4">
+                      <div className="text-center">
+                        <Package className="h-4 w-4 text-platinum-500 mx-auto mb-1" />
+                        <p className="text-xl font-luxury font-semibold text-white">{cat.count}</p>
+                        <p className="text-xs text-platinum-500">Productos</p>
+                      </div>
+                      <div className="text-center">
+                        <ShoppingBag className="h-4 w-4 text-platinum-500 mx-auto mb-1" />
+                        <p className="text-xl font-luxury font-semibold text-white">{cat.stock}</p>
+                        <p className="text-xs text-platinum-500">Stock</p>
+                      </div>
+                      <div className="text-center">
+                        <DollarSign className="h-4 w-4 text-platinum-500 mx-auto mb-1" />
+                        <p className="text-xl font-luxury font-semibold text-gold-400">
+                          ${(cat.value / 1000).toFixed(1)}k
                         </p>
+                        <p className="text-xs text-platinum-500">Valor</p>
                       </div>
                     </div>
-                  </div>
 
-                  <div className="grid grid-cols-3 gap-4 mb-4">
-                    <div className="text-center">
-                      <div className="flex items-center justify-center mb-1">
-                        <Package className="h-4 w-4 text-gray-400 mr-1" />
-                      </div>
-                      <p className="text-2xl font-bold text-gray-900">{stats.productCount}</p>
-                      <p className="text-xs text-gray-500">Productos</p>
+                    {/* Mini bar showing stock distribution */}
+                    <div className="space-y-1.5">
+                      {cat.products.slice(0, 3).map((p) => (
+                        <div key={p.id} className="flex items-center gap-2 text-xs">
+                          <span className="text-platinum-400 truncate flex-1">{p.name}</span>
+                          <span className={`px-1.5 py-0.5 rounded text-xs font-medium ${
+                            p.stock === 0
+                              ? 'bg-red-500/15 text-red-300'
+                              : p.stock <= 5
+                              ? 'bg-gold-500/15 text-gold-300'
+                              : 'bg-green-500/15 text-green-300'
+                          }`}>
+                            {p.stock}
+                          </span>
+                        </div>
+                      ))}
+                      {cat.products.length > 3 && (
+                        <p className="text-xs text-platinum-500 pt-1">
+                          +{cat.products.length - 3} productos más...
+                        </p>
+                      )}
                     </div>
-                    <div className="text-center">
-                      <p className="text-2xl font-bold text-green-600">${stats.totalValue.toLocaleString()}</p>
-                      <p className="text-xs text-gray-500">Valor</p>
-                    </div>
-                    <div className="text-center">
-                      <p className="text-2xl font-bold text-blue-600">{stats.totalStock}</p>
-                      <p className="text-xs text-gray-500">Stock</p>
+
+                    <div className="mt-4 flex items-center justify-between text-xs">
+                      <span className="text-platinum-400">
+                        {selectedCategory === cat.name ? 'Ocultar detalles' : 'Ver detalles'}
+                      </span>
+                      <TrendingUp className="h-3.5 w-3.5 text-platinum-500" />
                     </div>
                   </div>
+                </button>
+              </StaggerItem>
+            ))}
+          </StaggerGroup>
+        )}
 
-                  <div className="flex space-x-2">
-                    <button
-                      onClick={() => handleEdit(category)}
-                      className="flex-1 bg-blue-50 text-blue-600 px-3 py-2 rounded-lg hover:bg-blue-100 transition-colors flex items-center justify-center space-x-1"
-                    >
-                      <Edit className="h-4 w-4" />
-                      <span>Editar</span>
-                    </button>
-                    <button
-                      onClick={() => handleDelete(category.id)}
-                      className="flex-1 bg-red-50 text-red-600 px-3 py-2 rounded-lg hover:bg-red-100 transition-colors flex items-center justify-center space-x-1"
-                    >
-                      <Trash2 className="h-4 w-4" />
-                      <span>Eliminar</span>
-                    </button>
-                  </div>
-                </div>
-              </motion.div>
-            );
-          })}
-        </div>
-
-        {/* Category Form Modal */}
-        {showForm && (
+        {/* Expanded Category Detail */}
+        {selectedCategory && (
           <motion.div
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50"
+            initial={{ opacity: 0, height: 0 }}
+            animate={{ opacity: 1, height: 'auto' }}
+            exit={{ opacity: 0, height: 0 }}
+            className="mt-6"
           >
-            <motion.div
-              initial={{ scale: 0.9, opacity: 0 }}
-              animate={{ scale: 1, opacity: 1 }}
-              className="bg-white p-8 rounded-xl shadow-xl max-w-md w-full mx-4"
-            >
-              <h2 className="text-2xl font-bold text-gray-900 mb-6">
-                {editingCategory ? 'Editar Categoría' : 'Nueva Categoría'}
-              </h2>
-              
-              <form onSubmit={handleSubmit} className="space-y-4">
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">
-                    Nombre
-                  </label>
-                  <input
-                    type="text"
-                    value={formData.name}
-                    onChange={(e) => setFormData({...formData, name: e.target.value})}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-                    required
-                  />
-                </div>
-                
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">
-                    Descripción
-                  </label>
-                  <textarea
-                    value={formData.description}
-                    onChange={(e) => setFormData({...formData, description: e.target.value})}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-                    rows={3}
-                    required
-                  />
-                </div>
-                
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">
-                    Color
-                  </label>
-                  <div className="flex items-center space-x-3">
-                    <input
-                      type="color"
-                      value={formData.color}
-                      onChange={(e) => setFormData({...formData, color: e.target.value})}
-                      className="w-12 h-10 border border-gray-300 rounded-lg cursor-pointer"
-                    />
-                    <input
-                      type="text"
-                      value={formData.color}
-                      onChange={(e) => setFormData({...formData, color: e.target.value})}
-                      className="flex-1 px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-                      placeholder="#3B82F6"
-                    />
-                  </div>
-                </div>
-                
-                <div className="flex space-x-4 pt-4">
-                  <button
-                    type="button"
-                    onClick={resetForm}
-                    className="flex-1 px-4 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition-colors"
-                  >
-                    Cancelar
-                  </button>
-                  <button
-                    type="submit"
-                    className="flex-1 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
-                  >
-                    {editingCategory ? 'Actualizar' : 'Crear'}
-                  </button>
-                </div>
-              </form>
-            </motion.div>
+            <div className="luxury-card rounded-xl p-4 sm:p-6">
+              <div className="flex items-center gap-2 mb-4">
+                <Tag className="h-5 w-5 text-gold-400" />
+                <h3 className="font-luxury text-lg font-semibold text-gradient-gold">
+                  {selectedCategory} — Detalle de Productos
+                </h3>
+              </div>
+              <div className="overflow-x-auto">
+                <table className="w-full">
+                  <thead className="bg-black/20">
+                    <tr>
+                      <th className="px-4 py-3 text-left text-xs font-medium text-gold-400 uppercase tracking-wider">Producto</th>
+                      <th className="px-4 py-3 text-left text-xs font-medium text-gold-400 uppercase tracking-wider hidden sm:table-cell">Material</th>
+                      <th className="px-4 py-3 text-left text-xs font-medium text-gold-400 uppercase tracking-wider">Precio</th>
+                      <th className="px-4 py-3 text-left text-xs font-medium text-gold-400 uppercase tracking-wider">Stock</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-platinum-700/15">
+                    {categories.find(c => c.name === selectedCategory)?.products.map(p => (
+                      <tr key={p.id} className="hover:bg-white/5 transition-colors">
+                        <td className="px-4 py-3">
+                          <div className="flex items-center gap-3">
+                            <img src={p.image} alt={p.name} className="h-10 w-10 object-cover rounded-lg border border-platinum-700/30 flex-shrink-0" />
+                            <span className="text-sm text-white truncate">{p.name}</span>
+                          </div>
+                        </td>
+                        <td className="px-4 py-3 text-sm text-platinum-300 hidden sm:table-cell">{p.material}</td>
+                        <td className="px-4 py-3 text-sm font-semibold text-gold-400 whitespace-nowrap">${p.price.toLocaleString()}</td>
+                        <td className="px-4 py-3">
+                          <span className={`px-2.5 py-1 text-xs font-medium rounded-lg border ${
+                            p.stock === 0
+                              ? 'bg-red-500/15 text-red-300 border-red-500/30'
+                              : p.stock <= 5
+                              ? 'bg-gold-500/15 text-gold-300 border-gold-500/30'
+                              : 'bg-green-500/15 text-green-300 border-green-500/30'
+                          }`}>
+                            {p.stock}
+                          </span>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            </div>
           </motion.div>
         )}
       </div>
     </motion.div>
+  );
+}
+
+function SummaryCard({ icon: Icon, label, value, gold }: { icon: React.ComponentType<{ className?: string }>; label: string; value: string | number; gold?: boolean }) {
+  return (
+    <div className="luxury-card p-4 sm:p-5 rounded-xl">
+      <div className="flex items-center justify-between">
+        <div className="min-w-0">
+          <p className="text-xs text-platinum-400 uppercase tracking-wider truncate">{label}</p>
+          <p className={`text-xl sm:text-2xl md:text-3xl font-luxury font-semibold mt-1 truncate ${gold ? 'text-gold-400' : 'text-white'}`}>
+            {value}
+          </p>
+        </div>
+        <div className="p-2.5 sm:p-3 rounded-lg bg-gold-500/10 border border-gold-500/30 flex-shrink-0">
+          <Icon className="h-5 w-5 sm:h-6 sm:w-6 text-gold-400" />
+        </div>
+      </div>
+    </div>
   );
 }
