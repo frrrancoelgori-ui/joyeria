@@ -2,7 +2,6 @@ import React, { useState } from 'react';
 import { Navigate } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import { Lock, Eye, EyeOff, Diamond } from 'lucide-react';
-import { useApp } from '../context/AppContext';
 
 import { useApp } from '../context/AppContext';
 
