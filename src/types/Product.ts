@@ -1,9 +1,12 @@
+export type ProductStatus = 'available' | 'sold' | 'reserved';
+
 export interface Product {
   id: string;
   name: string;
   description: string;
   price: number;
   image: string;
+  additionalImages?: string[];
   category: string;
   stock: number;
   material: string;
@@ -14,7 +17,8 @@ export interface Product {
   branchId: string;
   branchName: string;
   isCustomizable: boolean;
-  craftingTime?: number; // días para productos personalizados
+  craftingTime?: number;
+  status: ProductStatus;
 }
 
 export interface CartItem {

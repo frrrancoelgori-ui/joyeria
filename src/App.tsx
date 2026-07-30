@@ -11,6 +11,8 @@ import { Dashboard } from './pages/Dashboard';
 import { Categories } from './pages/Categories';
 import { Branches } from './pages/Branches';
 import { Settings } from './pages/Settings';
+import { Customers } from './pages/Customers';
+import { Sales } from './pages/Sales';
 import { useApp } from './context/AppContext';
 
 function ProtectedRoute({ children }: { children: React.ReactNode }) {
@@ -56,6 +58,22 @@ function App() {
                 <>
                   <Header />
                   <Branches />
+                </>
+              </ProtectedRoute>
+            } />
+            <Route path="/ñoñito/customers" element={
+              <ProtectedRoute>
+                <>
+                  <Header />
+                  <Customers />
+                </>
+              </ProtectedRoute>
+            } />
+            <Route path="/ñoñito/sales" element={
+              <ProtectedRoute>
+                <>
+                  <Header />
+                  <Sales />
                 </>
               </ProtectedRoute>
             } />

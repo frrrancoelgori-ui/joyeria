@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Plus, CreditCard as Edit2, Trash2, Package, DollarSign, ShoppingBag, X, Search, Sparkles, AlertTriangle, Save, Check, Loader2 } from 'lucide-react';
 import { useApp } from '../context/AppContext';
-import { Product } from '../types/Product';
+import { Product, ProductStatus } from '../types/Product';
 import { ScrollReveal, StaggerGroup, StaggerItem } from '../components/ScrollReveal';
 
 type ProductFormData = Omit<Product, 'id'> & {
@@ -10,6 +10,8 @@ type ProductFormData = Omit<Product, 'id'> & {
   stock: string;
   weight: string;
   craftingTime: string;
+  additionalImages: string[];
+  status: string;
 };
 
 const emptyForm: ProductFormData = {
@@ -17,6 +19,7 @@ const emptyForm: ProductFormData = {
   description: '',
   price: '',
   image: '',
+  additionalImages: [],
   category: '',
   stock: '',
   material: '',
@@ -28,6 +31,7 @@ const emptyForm: ProductFormData = {
   branchName: '',
   isCustomizable: false,
   craftingTime: '',
+  status: 'available',
 };
 
 export function Admin() {
@@ -41,6 +45,8 @@ export function Admin() {
   const [saving, setSaving] = useState(false);
   const [inlineStock, setInlineStock] = useState<Record<string, string>>({});
   const [savingStock, setSavingStock] = useState<string | null>(null);
+  const [statusFilter, setStatusFilter] = useState('');
+  const [newImageUrl, setNewImageUrl] = useState('');
 
   const categories = Array.from(new Set(products.map(p => p.category))).sort();
 
@@ -50,7 +56,8 @@ export function Admin() {
       p.description.toLowerCase().includes(searchTerm.toLowerCase());
     const matchesCategory = !categoryFilter || p.category === categoryFilter;
     const matchesBranch = !branchFilter || p.branchId === branchFilter;
-    return matchesSearch && matchesCategory && matchesBranch;
+    const matchesStatus = !statusFilter || p.status === statusFilter;
+    return matchesSearch && matchesCategory && matchesBranch && matchesStatus;
   });
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -63,6 +70,7 @@ export function Admin() {
       description: formData.description,
       price: parseFloat(formData.price) || 0,
       image: formData.image,
+      additionalImages: formData.additionalImages,
       category: formData.category,
       stock: parseInt(formData.stock) || 0,
       material: formData.material,
@@ -74,6 +82,7 @@ export function Admin() {
       branchName: branch?.name || formData.branchName,
       isCustomizable: formData.isCustomizable,
       craftingTime: formData.isCustomizable ? parseInt(formData.craftingTime) || 1 : undefined,
+      status: (formData.status || 'available') as ProductStatus,
     };
 
     if (editingProduct) {
@@ -90,6 +99,7 @@ export function Admin() {
     setFormData(emptyForm);
     setShowForm(false);
     setEditingProduct(null);
+    setNewImageUrl('');
   };
 
   const handleEdit = (product: Product) => {
@@ -99,6 +109,7 @@ export function Admin() {
       description: product.description,
       price: product.price.toString(),
       image: product.image,
+      additionalImages: product.additionalImages || [],
       category: product.category,
       stock: product.stock.toString(),
       material: product.material,
@@ -110,6 +121,7 @@ export function Admin() {
       branchName: product.branchName,
       isCustomizable: product.isCustomizable,
       craftingTime: product.craftingTime?.toString() || '',
+      status: product.status || 'available',
     });
     setShowForm(true);
   };
@@ -137,6 +149,30 @@ export function Admin() {
     if (stock === 0) return 'bg-red-500/20 text-red-300 border-red-500/40';
     if (stock <= 5) return 'bg-gold-500/20 text-gold-300 border-gold-500/40';
     return 'bg-green-500/20 text-green-300 border-green-500/40';
+  };
+
+  const statusBadge = (status: string) => {
+    if (status === 'sold') return 'bg-red-500/15 text-red-300 border-red-500/30';
+    if (status === 'reserved') return 'bg-gold-500/15 text-gold-300 border-gold-500/30';
+    return 'bg-green-500/15 text-green-300 border-green-500/30';
+  };
+
+  const statusLabel = (status: string) => {
+    if (status === 'sold') return 'Vendido';
+    if (status === 'reserved') return 'Reservado';
+    return 'Disponible';
+  };
+
+  const addImageUrl = () => {
+    const url = newImageUrl.trim();
+    if (url && !formData.additionalImages.includes(url)) {
+      setFormData({ ...formData, additionalImages: [...formData.additionalImages, url] });
+      setNewImageUrl('');
+    }
+  };
+
+  const removeImageUrl = (url: string) => {
+    setFormData({ ...formData, additionalImages: formData.additionalImages.filter(u => u !== url) });
   };
 
   return (
@@ -209,6 +245,23 @@ export function Admin() {
           </div>
         </ScrollReveal>
 
+        {/* Status filter row */}
+        <div className="flex gap-2 mb-4 sm:mb-6 overflow-x-auto pb-1">
+          {['', 'available', 'sold', 'reserved'].map(s => (
+            <button
+              key={s}
+              onClick={() => setStatusFilter(s)}
+              className={`px-3 py-1.5 text-xs font-medium rounded-lg border whitespace-nowrap transition-all ${
+                statusFilter === s
+                  ? 'bg-gold-500/20 text-gold-300 border-gold-500/40'
+                  : 'border-platinum-700/30 text-platinum-400 hover:bg-white/5'
+              }`}
+            >
+              {s === '' ? 'Todos' : s === 'available' ? 'Disponibles' : s === 'sold' ? 'Vendidos' : 'Reservados'}
+            </button>
+          ))}
+        </div>
+
         {/* Products Table — Desktop */}
         <div className="luxury-card rounded-xl overflow-hidden hidden md:block">
           <div className="overflow-x-auto">
@@ -221,6 +274,7 @@ export function Admin() {
                   <th className="px-6 py-4 text-left text-xs font-semibold text-gold-400 uppercase tracking-wider hidden xl:table-cell">Sucursal</th>
                   <th className="px-6 py-4 text-left text-xs font-semibold text-gold-400 uppercase tracking-wider">Precio</th>
                   <th className="px-6 py-4 text-left text-xs font-semibold text-gold-400 uppercase tracking-wider">Stock</th>
+                  <th className="px-6 py-4 text-left text-xs font-semibold text-gold-400 uppercase tracking-wider hidden xl:table-cell">Estado</th>
                   <th className="px-6 py-4 text-right text-xs font-semibold text-gold-400 uppercase tracking-wider">Acciones</th>
                 </tr>
               </thead>
@@ -309,6 +363,11 @@ export function Admin() {
                           </button>
                         )}
                       </td>
+                      <td className="px-6 py-4 whitespace-nowrap hidden xl:table-cell">
+                        <span className={`px-2.5 py-1 text-xs font-medium rounded-lg border ${statusBadge(product.status || 'available')}`}>
+                          {statusLabel(product.status || 'available')}
+                        </span>
+                      </td>
                       <td className="px-6 py-4 whitespace-nowrap text-right">
                         <div className="flex items-center justify-end space-x-2">
                           <button
@@ -365,6 +424,9 @@ export function Admin() {
                           {product.category}
                         </span>
                         <span className="text-xs text-platinum-400">{product.material}</span>
+                        <span className={`px-2 py-0.5 text-xs font-medium rounded border ${statusBadge(product.status || 'available')}`}>
+                          {statusLabel(product.status || 'available')}
+                        </span>
                       </div>
                       <div className="flex items-center justify-between mt-3">
                         <div className="flex items-center gap-3">
@@ -470,16 +532,56 @@ export function Admin() {
 
                 <div>
                   <label className="block text-sm font-medium text-platinum-300 mb-1.5">
-                    URL de Imagen
+                    URL de Imagen Principal
                   </label>
                   <input
                     type="url"
                     value={formData.image}
                     onChange={e => setFormData({ ...formData, image: e.target.value })}
                     className="luxury-input w-full py-2.5 px-3 rounded-lg"
-                    placeholder="https://..."
+                    placeholder="https://... (Drive, Pexels, Google, etc.)"
                     required
                   />
+                </div>
+
+                {/* Additional Images */}
+                <div>
+                  <label className="block text-sm font-medium text-platinum-300 mb-1.5">
+                    Fotos Adicionales
+                  </label>
+                  <div className="flex gap-2">
+                    <input
+                      type="url"
+                      value={newImageUrl}
+                      onChange={e => setNewImageUrl(e.target.value)}
+                      onKeyDown={e => { if (e.key === 'Enter') { e.preventDefault(); addImageUrl(); } }}
+                      className="luxury-input flex-1 py-2.5 px-3 rounded-lg"
+                      placeholder="Pega otra URL de foto..."
+                    />
+                    <button
+                      type="button"
+                      onClick={addImageUrl}
+                      className="px-4 py-2.5 border border-gold-500/30 text-gold-300 rounded-lg hover:bg-gold-500/10 transition-colors"
+                    >
+                      <Plus className="h-4 w-4" />
+                    </button>
+                  </div>
+                  {formData.additionalImages.length > 0 && (
+                    <div className="grid grid-cols-3 sm:grid-cols-4 gap-2 mt-3">
+                      {formData.additionalImages.map((url, idx) => (
+                        <div key={idx} className="relative group">
+                          <img src={url} alt={`foto ${idx + 1}`} className="h-20 w-full object-cover rounded-lg border border-platinum-700/30" />
+                          <button
+                            type="button"
+                            onClick={() => removeImageUrl(url)}
+                            className="absolute top-1 right-1 p-1 bg-black/70 text-red-400 rounded opacity-0 group-hover:opacity-100 transition-opacity"
+                          >
+                            <X className="h-3 w-3" />
+                          </button>
+                        </div>
+                      ))}
+                    </div>
+                  )}
                 </div>
 
                 <div>
@@ -621,6 +723,30 @@ export function Admin() {
                       <option key={branch.id} value={branch.id}>{branch.name}</option>
                     ))}
                   </select>
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-platinum-300 mb-1.5">Estado del Producto</label>
+                  <div className="grid grid-cols-3 gap-2">
+                    {[
+                      { value: 'available', label: 'Disponible' },
+                      { value: 'sold', label: 'Vendido' },
+                      { value: 'reserved', label: 'Reservado' },
+                    ].map(opt => (
+                      <button
+                        key={opt.value}
+                        type="button"
+                        onClick={() => setFormData({ ...formData, status: opt.value })}
+                        className={`px-3 py-2.5 text-sm rounded-lg border transition-all ${
+                          formData.status === opt.value
+                            ? statusBadge(opt.value) + ' ring-1 ring-gold-500/50'
+                            : 'border-platinum-700/30 text-platinum-400 hover:bg-white/5'
+                        }`}
+                      >
+                        {opt.label}
+                      </button>
+                    ))}
+                  </div>
                 </div>
 
                 <div className="luxury-card p-4 rounded-lg space-y-3">

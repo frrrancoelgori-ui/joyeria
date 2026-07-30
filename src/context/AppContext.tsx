@@ -1,7 +1,8 @@
 import React, { createContext, useContext, useState, useEffect, ReactNode, useCallback } from 'react';
-import { Product, CartItem } from '../types/Product';
-import { Sale } from '../types/Sale';
+import { Product, CartItem, ProductStatus } from '../types/Product';
+import { Sale, SaleStatus } from '../types/Sale';
 import { Branch } from '../types/Branch';
+import { Customer, CustomerInput } from '../types/Customer';
 import { AnalyticsService } from '../services/AnalyticsService';
 import { ExportService } from '../services/ExportService';
 import { InventoryService } from '../services/InventoryService';
@@ -23,6 +24,7 @@ interface AppContextType {
   selectedBranch: Branch | null;
   cart: CartItem[];
   sales: Sale[];
+  customers: Customer[];
   isAuthenticated: boolean;
   loading: boolean;
   storeSettings: StoreSettings;
@@ -38,6 +40,11 @@ interface AppContextType {
   addProducts: (products: Product[]) => Promise<void>;
   updateProduct: (product: Product) => Promise<void>;
   deleteProduct: (id: string) => Promise<void>;
+  addCustomer: (customer: CustomerInput) => Promise<boolean>;
+  updateCustomer: (customer: Customer) => Promise<boolean>;
+  deleteCustomer: (id: string) => Promise<void>;
+  updateSale: (saleId: string, updates: { status?: SaleStatus; paymentStatus?: string; paymentMethod?: string; notes?: string; customerId?: string }) => Promise<boolean>;
+  recordSale: (params: { items: CartItem[]; total: number; customerId?: string; customerEmail?: string; branchId?: string; paymentMethod?: string; notes?: string; saleStatus?: SaleStatus }) => Promise<boolean>;
   transferStock: (productId: string, fromBranch: string, toBranch: string, quantity: number) => Promise<void>;
   addToCart: (product: Product) => void;
   removeFromCart: (productId: string) => void;
@@ -64,6 +71,7 @@ function mapDbProduct(p: any, branchName: string): Product {
     description: p.description,
     price: Number(p.price),
     image: p.image_url,
+    additionalImages: p.additional_images || [],
     category: p.category,
     stock: p.stock,
     material: p.material,
@@ -75,6 +83,7 @@ function mapDbProduct(p: any, branchName: string): Product {
     branchName,
     isCustomizable: p.is_customizable,
     craftingTime: p.crafting_time || undefined,
+    status: (p.status || 'available') as ProductStatus,
   };
 }
 
@@ -99,6 +108,7 @@ function mapDbBranch(b: any): Branch {
 function mapDbSale(s: any, items: any[]): Sale {
   return {
     id: s.id,
+    saleNumber: s.sale_number,
     date: s.created_at,
     items: items.map((it: any) => ({
       product: {
@@ -115,12 +125,33 @@ function mapDbSale(s: any, items: any[]): Sale {
         branchId: s.branch_id || '',
         branchName: '',
         isCustomizable: false,
+        status: 'available' as ProductStatus,
       },
       quantity: it.quantity,
     })),
     total: Number(s.total_amount),
     customerEmail: s.customer_email || undefined,
-    status: s.payment_status === 'completed' ? 'completed' : s.payment_status,
+    customerId: s.customer_id || undefined,
+    status: (s.status || (s.payment_status === 'completed' ? 'completed' : s.payment_status) || 'completed') as SaleStatus,
+    paymentStatus: s.payment_status,
+    paymentMethod: s.payment_method,
+    notes: s.notes,
+    branchId: s.branch_id || undefined,
+  };
+}
+
+function mapDbCustomer(c: any): Customer {
+  return {
+    id: c.id,
+    fullName: c.full_name,
+    phone: c.phone || '',
+    email: c.email || '',
+    address: c.address || '',
+    city: c.city || '',
+    notes: c.notes || '',
+    totalPurchases: c.total_purchases || 0,
+    totalSpent: Number(c.total_spent) || 0,
+    createdAt: c.created_at,
   };
 }
 
@@ -130,6 +161,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
   const [selectedBranch, setSelectedBranch] = useState<Branch | null>(null);
   const [cart, setCart] = useState<CartItem[]>([]);
   const [sales, setSales] = useState<Sale[]>([]);
+  const [customers, setCustomers] = useState<Customer[]>([]);
   const [isAuthenticated, setIsAuthenticated] = useState(false);
   const [loading, setLoading] = useState(true);
   const [storeSettings, setStoreSettings] = useState<StoreSettings>({
@@ -178,6 +210,15 @@ export function AppProvider({ children }: { children: ReactNode }) {
     return (saleRows || []).map(s => mapDbSale(s, s.sale_items || []));
   }, []);
 
+  const loadCustomers = useCallback(async (): Promise<Customer[]> => {
+    const { data, error } = await supabase.from('customers').select('*').order('created_at', { ascending: false });
+    if (error) {
+      console.error('Error loading customers:', error);
+      return [];
+    }
+    return (data || []).map(mapDbCustomer);
+  }, []);
+
   const loadSettings = useCallback(async (): Promise<StoreSettings> => {
     const { data, error } = await supabase.from('store_settings').select('*').eq('id', 1).maybeSingle();
     if (error || !data) {
@@ -198,11 +239,13 @@ export function AppProvider({ children }: { children: ReactNode }) {
       setProducts(pl);
       const sl = await loadSales();
       setSales(sl);
+      const cl = await loadCustomers();
+      setCustomers(cl);
       const st = await loadSettings();
       setStoreSettings(st);
       setLoading(false);
     })();
-  }, [loadBranches, loadProducts, loadSales, loadSettings]);
+  }, [loadBranches, loadProducts, loadSales, loadCustomers, loadSettings]);
 
   // ---- Auth ----
   const loginWithCredentials = useCallback(async (username: string, password: string): Promise<boolean> => {
@@ -363,12 +406,11 @@ export function AppProvider({ children }: { children: ReactNode }) {
       const data = await res.json();
       if (!res.ok) throw new Error(data.error);
       setProducts(prev => [...prev, data.product]);
-      analyticsService.trackProductAdded(data.product);
       Swal.fire({ title: '¡Producto agregado!', text: `${productData.name} ha sido agregado al catálogo`, icon: 'success', timer: 2000, showConfirmButton: false });
     } catch (err: any) {
       Swal.fire({ title: 'Error', text: err.message, icon: 'error' });
     }
-  }, [analyticsService]);
+  }, []);
 
   const addProducts = useCallback(async (newProducts: Product[]) => {
     for (const p of newProducts) {
@@ -421,15 +463,13 @@ export function AppProvider({ children }: { children: ReactNode }) {
       const res = await callAdminFunction(`/admin-api/product?id=${id}`, { method: 'DELETE' });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error);
-      const productToDelete = products.find(p => p.id === id);
       setProducts(prev => prev.filter(p => p.id !== id));
       setCart(prev => prev.filter(item => item.product.id !== id));
-      if (productToDelete) analyticsService.trackProductDeleted(productToDelete);
       Swal.fire({ title: '¡Eliminado!', text: 'El producto ha sido eliminado', icon: 'success', timer: 1500, showConfirmButton: false });
     } catch (err: any) {
       Swal.fire({ title: 'Error', text: err.message, icon: 'error' });
     }
-  }, [products, analyticsService]);
+  }, []);
 
   const transferStock = useCallback(async (productId: string, fromBranch: string, toBranch: string, quantity: number) => {
     const product = products.find(p => p.id === productId);
@@ -463,6 +503,119 @@ export function AppProvider({ children }: { children: ReactNode }) {
     }
     Swal.fire({ title: '¡Transferencia exitosa!', text: `${quantity} unidades transferidas`, icon: 'success', timer: 2000, showConfirmButton: false });
   }, [products, branches, updateProduct, addProduct]);
+
+  // ---- Customer CRUD ----
+  const addCustomer = useCallback(async (customerData: CustomerInput): Promise<boolean> => {
+    try {
+      const res = await callAdminFunction('/admin-api/customer', {
+        method: 'POST',
+        body: JSON.stringify(customerData),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error);
+      setCustomers(prev => [data.customer, ...prev]);
+      Swal.fire({ title: '¡Cliente agregado!', text: `${customerData.fullName} ha sido registrado`, icon: 'success', timer: 2000, showConfirmButton: false });
+      return true;
+    } catch (err: any) {
+      Swal.fire({ title: 'Error', text: err.message, icon: 'error' });
+      return false;
+    }
+  }, []);
+
+  const updateCustomer = useCallback(async (updatedCustomer: Customer): Promise<boolean> => {
+    try {
+      const res = await callAdminFunction('/admin-api/customer', {
+        method: 'PUT',
+        body: JSON.stringify(updatedCustomer),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error);
+      setCustomers(prev => prev.map(c => c.id === updatedCustomer.id ? data.customer : c));
+      Swal.fire({ title: '¡Cliente actualizado!', text: 'Los cambios han sido guardados', icon: 'success', timer: 1500, showConfirmButton: false });
+      return true;
+    } catch (err: any) {
+      Swal.fire({ title: 'Error', text: err.message, icon: 'error' });
+      return false;
+    }
+  }, []);
+
+  const deleteCustomer = useCallback(async (id: string) => {
+    const result = await Swal.fire({
+      title: '¿Eliminar cliente?', text: 'Esta acción no se puede deshacer', icon: 'warning',
+      showCancelButton: true, confirmButtonColor: '#EF4444', cancelButtonColor: '#6B7280',
+      confirmButtonText: 'Sí, eliminar', cancelButtonText: 'Cancelar',
+    });
+    if (!result.isConfirmed) return;
+    try {
+      const res = await callAdminFunction(`/admin-api/customer?id=${id}`, { method: 'DELETE' });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error);
+      setCustomers(prev => prev.filter(c => c.id !== id));
+      Swal.fire({ title: '¡Eliminado!', text: 'El cliente ha sido eliminado', icon: 'success', timer: 1500, showConfirmButton: false });
+    } catch (err: any) {
+      Swal.fire({ title: 'Error', text: err.message, icon: 'error' });
+    }
+  }, []);
+
+  // ---- Sale management ----
+  const updateSale = useCallback(async (saleId: string, updates: { status?: SaleStatus; paymentStatus?: string; paymentMethod?: string; notes?: string; customerId?: string }): Promise<boolean> => {
+    try {
+      const res = await callAdminFunction('/admin-api/sales', {
+        method: 'PUT',
+        body: JSON.stringify({ id: saleId, ...updates }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error);
+      setSales(prev => prev.map(s => s.id === saleId ? { ...s, ...updates } : s));
+      Swal.fire({ title: '¡Venta actualizada!', text: 'Los cambios han sido guardados', icon: 'success', timer: 1500, showConfirmButton: false });
+      return true;
+    } catch (err: any) {
+      Swal.fire({ title: 'Error', text: err.message, icon: 'error' });
+      return false;
+    }
+  }, []);
+
+  const recordSale = useCallback(async (params: { items: CartItem[]; total: number; customerId?: string; customerEmail?: string; branchId?: string; paymentMethod?: string; notes?: string; saleStatus?: SaleStatus }): Promise<boolean> => {
+    try {
+      const res = await callAdminFunction('/admin-api/sale', {
+        method: 'POST',
+        body: JSON.stringify(params),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error);
+      const sale: Sale = {
+        id: data.saleId,
+        saleNumber: data.saleNumber,
+        date: new Date().toISOString(),
+        items: [...params.items],
+        total: params.total,
+        customerId: params.customerId,
+        customerEmail: params.customerEmail,
+        status: params.saleStatus || 'completed',
+        paymentMethod: params.paymentMethod,
+        notes: params.notes,
+        branchId: params.branchId,
+      };
+      setSales(prev => [sale, ...prev]);
+      // Decrement stock locally
+      setProducts(prev => prev.map(product => {
+        const cartItem = params.items.find(item => item.product.id === product.id);
+        if (cartItem) {
+          const newStock = Math.max(0, product.stock - cartItem.quantity);
+          return { ...product, stock: newStock, status: newStock === 0 ? 'sold' : product.status };
+        }
+        return product;
+      }));
+      // Reload customers to update stats
+      const cl = await loadCustomers();
+      setCustomers(cl);
+      Swal.fire({ title: '¡Venta registrada!', text: `N° ${data.saleNumber || ''} — Total: ${params.total.toLocaleString()}`, icon: 'success', timer: 3000, showConfirmButton: false });
+      return true;
+    } catch (err: any) {
+      Swal.fire({ title: 'Error', text: err.message || 'No se pudo registrar la venta', icon: 'error' });
+      return false;
+    }
+  }, [loadCustomers]);
 
   // ---- Cart ----
   const addToCart = useCallback((product: Product) => {
@@ -518,42 +671,12 @@ export function AppProvider({ children }: { children: ReactNode }) {
   const completePurchase = useCallback(async (customerEmail?: string) => {
     if (cart.length === 0) return;
     const total = cart.reduce((sum, item) => sum + item.product.price * item.quantity, 0);
-    const branchId = cart[0]?.product.branchId || null;
-    try {
-      const res = await callAdminFunction('/admin-api/sale', {
-        method: 'POST',
-        body: JSON.stringify({ items: cart, total, customerEmail, branchId }),
-      });
-      const data = await res.json();
-      if (!res.ok) throw new Error(data.error);
-
-      const sale: Sale = {
-        id: data.saleId,
-        date: new Date().toISOString(),
-        items: [...cart],
-        total,
-        customerEmail,
-        status: 'completed',
-      };
-      setSales(prev => [sale, ...prev]);
-      analyticsService.addSale(sale);
-      customerService.processSale(sale);
-
-      // Optimistic stock decrement
-      setProducts(prev => prev.map(product => {
-        const cartItem = cart.find(item => item.product.id === product.id);
-        if (cartItem) return { ...product, stock: Math.max(0, product.stock - cartItem.quantity) };
-        return product;
-      }));
-
+    const branchId = cart[0]?.product.branchId || undefined;
+    const success = await recordSale({ items: [...cart], total, customerEmail, branchId, saleStatus: 'completed' });
+    if (success) {
       setCart([]);
-      analyticsService.trackCartUpdate([]);
-
-      Swal.fire({ title: '¡Compra exitosa!', text: `Total: $${total.toLocaleString()}`, icon: 'success', timer: 3000, showConfirmButton: false });
-    } catch (err: any) {
-      Swal.fire({ title: 'Error', text: err.message || 'No se pudo completar la compra', icon: 'error' });
     }
-  }, [cart, analyticsService, customerService]);
+  }, [cart, recordSale]);
 
   // ---- Exports / imports ----
   const exportProducts = useCallback(async (format: 'excel' | 'pdf') => {
@@ -615,11 +738,12 @@ export function AppProvider({ children }: { children: ReactNode }) {
 
   return (
     <AppContext.Provider value={{
-      products, branches, selectedBranch, cart, sales,
+      products, branches, selectedBranch, cart, sales, customers,
       isAuthenticated, loading, storeSettings,
       loginWithCredentials, changeCredentials, updateStoreSettings, logout,
       selectBranch, addBranch, updateBranch, deleteBranch,
       addProduct, addProducts, updateProduct, deleteProduct, transferStock,
+      addCustomer, updateCustomer, deleteCustomer, updateSale, recordSale,
       addToCart, removeFromCart, updateCartQuantity, clearCart, completePurchase,
       exportProducts, exportSales, importProducts,
       getAnalytics, getInventoryAlerts, getCustomerInsights,

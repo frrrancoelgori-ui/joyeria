@@ -214,7 +214,8 @@ async function handleProductAction(req: Request, method: string): Promise<Respon
       material: b.material, weight: b.weight, size: b.size, gemstone: b.gemstone || null,
       certification: b.certification || null, branch_id: b.branchId, stock: b.stock,
       is_customizable: b.isCustomizable, crafting_time: b.craftingTime || null,
-      image_url: b.image, is_active: true,
+      image_url: b.image, additional_images: b.additionalImages || [],
+      status: b.status || 'available', is_active: true,
     }).select().single();
     if (error) return json({ error: error.message }, 500);
     return json({ success: true, product: mapProduct(data, branch?.name) });
@@ -232,7 +233,8 @@ async function handleProductAction(req: Request, method: string): Promise<Respon
       material: b.material, weight: b.weight, size: b.size, gemstone: b.gemstone || null,
       certification: b.certification || null, branch_id: b.branchId, stock: b.stock,
       is_customizable: b.isCustomizable, crafting_time: b.craftingTime || null,
-      image_url: b.image,
+      image_url: b.image, additional_images: b.additionalImages || [],
+      status: b.status || 'available',
     }).eq("id", b.id).select().single();
     if (error) return json({ error: error.message }, 500);
     return json({ success: true, product: mapProduct(data, branch?.name) });
@@ -256,6 +258,7 @@ function mapProduct(p: any, branchName?: string): any {
     description: p.description,
     price: Number(p.price),
     image: p.image_url,
+    additionalImages: p.additional_images || [],
     category: p.category,
     stock: p.stock,
     material: p.material,
@@ -267,6 +270,7 @@ function mapProduct(p: any, branchName?: string): any {
     branchName: branchName || "",
     isCustomizable: p.is_customizable,
     craftingTime: p.crafting_time || undefined,
+    status: p.status || 'available',
   };
 }
 
@@ -333,14 +337,18 @@ function mapBranch(b: any): any {
 // ---- Sales: record a completed purchase ----
 
 async function handleRecordSale(req: Request): Promise<Response> {
-  const { items, total, customerEmail, branchId } = await req.json();
+  const { items, total, customerEmail, customerId, branchId, paymentStatus, saleStatus, paymentMethod, notes } = await req.json();
   if (!items || items.length === 0) return json({ error: "Carrito vacío" }, 400);
 
   const { data: sale, error } = await supabase.from("sales").insert({
     customer_email: customerEmail || null,
+    customer_id: customerId || null,
     branch_id: branchId || null,
     total_amount: total,
-    payment_status: "completed",
+    payment_status: paymentStatus || "completed",
+    status: saleStatus || "completed",
+    payment_method: paymentMethod || null,
+    notes: notes || null,
   }).select().single();
   if (error) return json({ error: error.message }, 500);
 
@@ -355,12 +363,130 @@ async function handleRecordSale(req: Request): Promise<Response> {
   const { error: itemErr } = await supabase.from("sale_items").insert(rows);
   if (itemErr) return json({ error: itemErr.message }, 500);
 
-  // Decrement stock
+  // Decrement stock and mark products as sold if stock reaches 0
   for (const it of items) {
     await supabase.rpc("decrement_stock", { p_product_id: it.product.id, p_qty: it.quantity });
+    // Mark product status as sold if stock is now 0
+    const { data: prod } = await supabase.from("products").select("stock").eq("id", it.product.id).maybeSingle();
+    if (prod && prod.stock <= 0) {
+      await supabase.from("products").update({ status: 'sold' }).eq("id", it.product.id);
+    }
   }
 
-  return json({ success: true, saleId: sale.id });
+  // Update customer stats if a customer was assigned
+  if (customerId) {
+    await supabase.rpc("update_customer_stats", { p_customer_id: customerId }).catch(() => {});
+  }
+
+  return json({ success: true, saleId: sale.id, saleNumber: sale.sale_number });
+}
+
+// ---- Customer CRUD ----
+
+async function handleCustomerAction(req: Request, method: string): Promise<Response> {
+  const body = method === "GET" ? null : await req.json().catch(() => null);
+
+  if (method === "POST") {
+    const b = body;
+    const { data, error } = await supabase.from("customers").insert({
+      full_name: b.fullName, phone: b.phone || null, email: b.email || null,
+      address: b.address || null, city: b.city || null, notes: b.notes || null,
+    }).select().single();
+    if (error) return json({ error: error.message }, 500);
+    return json({ success: true, customer: mapCustomer(data) });
+  }
+
+  if (method === "PUT") {
+    const b = body;
+    const { data, error } = await supabase.from("customers").update({
+      full_name: b.fullName, phone: b.phone || null, email: b.email || null,
+      address: b.address || null, city: b.city || null, notes: b.notes || null,
+      updated_at: new Date().toISOString(),
+    }).eq("id", b.id).select().single();
+    if (error) return json({ error: error.message }, 500);
+    return json({ success: true, customer: mapCustomer(data) });
+  }
+
+  if (method === "DELETE") {
+    const id = new URL(req.url).searchParams.get("id");
+    if (!id) return json({ error: "id requerido" }, 400);
+    const { error } = await supabase.from("customers").delete().eq("id", id);
+    if (error) return json({ error: error.message }, 500);
+    return json({ success: true });
+  }
+
+  return json({ error: "Método no soportado" }, 405);
+}
+
+function mapCustomer(c: any): any {
+  return {
+    id: c.id,
+    fullName: c.full_name,
+    phone: c.phone || '',
+    email: c.email || '',
+    address: c.address || '',
+    city: c.city || '',
+    notes: c.notes || '',
+    totalPurchases: c.total_purchases || 0,
+    totalSpent: Number(c.total_spent) || 0,
+    createdAt: c.created_at,
+  };
+}
+
+// ---- Sales management ----
+
+async function handleSaleAction(req: Request, method: string): Promise<Response> {
+  if (method === "GET") {
+    const { data, error } = await supabase
+      .from("sales")
+      .select("*, sale_items(*), customers(full_name, phone, email)")
+      .order("created_at", { ascending: false })
+      .limit(200);
+    if (error) return json({ error: error.message }, 500);
+    return json({ sales: (data || []).map(mapSaleWithCustomer) });
+  }
+
+  if (method === "PUT") {
+    const b = await req.json();
+    const updates: any = { updated_at: new Date().toISOString() };
+    if (b.status !== undefined) updates.status = b.status;
+    if (b.paymentStatus !== undefined) updates.payment_status = b.paymentStatus;
+    if (b.paymentMethod !== undefined) updates.payment_method = b.paymentMethod;
+    if (b.notes !== undefined) updates.notes = b.notes;
+    if (b.customerId !== undefined) updates.customer_id = b.customerId || null;
+    const { data, error } = await supabase.from("sales").update(updates).eq("id", b.id).select().single();
+    if (error) return json({ error: error.message }, 500);
+    return json({ success: true, sale: mapSaleWithCustomer(data) });
+  }
+
+  return json({ error: "Método no soportado" }, 405);
+}
+
+function mapSaleWithCustomer(s: any): any {
+  return {
+    id: s.id,
+    saleNumber: s.sale_number,
+    date: s.created_at,
+    total: Number(s.total_amount),
+    status: s.status || s.payment_status || 'completed',
+    paymentStatus: s.payment_status,
+    paymentMethod: s.payment_method,
+    notes: s.notes,
+    customer: s.customers ? {
+      fullName: s.customers.full_name,
+      phone: s.customers.phone,
+      email: s.customers.email,
+    } : null,
+    customerEmail: s.customer_email,
+    branchId: s.branch_id,
+    items: (s.sale_items || []).map((it: any) => ({
+      productId: it.product_id,
+      productName: it.product_name,
+      productPrice: Number(it.product_price),
+      quantity: it.quantity,
+      subtotal: Number(it.subtotal),
+    })),
+  };
 }
 
 function json(body: any, status = 200): Response {
@@ -430,6 +556,8 @@ Deno.serve(async (req: Request) => {
     if (path === "/product" && ["POST", "PUT", "DELETE"].includes(req.method)) return await handleProductAction(req, req.method);
     if (path === "/branch" && ["POST", "PUT", "DELETE"].includes(req.method)) return await handleBranchAction(req, req.method);
     if (path === "/sale" && req.method === "POST") return await handleRecordSale(req);
+    if (path === "/sales" && ["GET", "PUT"].includes(req.method)) return await handleSaleAction(req, req.method);
+    if (path === "/customer" && ["POST", "PUT", "DELETE"].includes(req.method)) return await handleCustomerAction(req, req.method);
     if (path === "/settings" && ["GET", "PUT"].includes(req.method)) return await handleSettings(req, req.method);
     return json({ error: "Ruta no encontrada" }, 404);
   } catch (err) {

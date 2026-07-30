@@ -94,6 +94,12 @@ export function Header() {
                 <Link to="/ñoñito/branches" className={navLinkClass}>
                   Sucursales
                 </Link>
+                <Link to="/ñoñito/customers" className={navLinkClass}>
+                  Clientes
+                </Link>
+                <Link to="/ñoñito/sales" className={navLinkClass}>
+                  Ventas
+                </Link>
                 <Link to="/ñoñito/settings" className={navLinkClass}>
                   Configuración
                 </Link>
