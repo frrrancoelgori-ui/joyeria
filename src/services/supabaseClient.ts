@@ -32,3 +32,15 @@ export async function callAdminFunction(path: string, options: RequestInit = {})
   }
   return fetch(`${functionUrl}${path}`, { ...options, headers });
 }
+
+/**
+ * Stores the access and refresh tokens returned by the edge function login
+ * into the Supabase auth session so that callAdminFunction sends a valid
+ * admin token on subsequent requests.
+ */
+export async function setAdminSession(accessToken: string, refreshToken: string): Promise<void> {
+  await supabase.auth.setSession({
+    access_token: accessToken,
+    refresh_token: refreshToken,
+  });
+}

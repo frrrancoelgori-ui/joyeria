@@ -9,7 +9,7 @@ import { InventoryService } from '../services/InventoryService';
 import { CustomerService } from '../services/CustomerService';
 import { ReportService } from '../services/ReportService';
 import { BranchService } from '../services/BranchService';
-import { supabase, callAdminFunction } from '../services/supabaseClient';
+import { supabase, callAdminFunction, setAdminSession } from '../services/supabaseClient';
 import Swal from 'sweetalert2';
 
 interface StoreSettings {
@@ -233,6 +233,23 @@ export function AppProvider({ children }: { children: ReactNode }) {
 
   useEffect(() => {
     (async () => {
+      // Check for existing admin session (persisted by Supabase auth)
+      const { data: { session } } = await supabase.auth.getSession();
+      if (session?.access_token) {
+        // Verify the session belongs to an active admin
+        const { data: { user } } = await supabase.auth.getUser();
+        if (user) {
+          const { data: adminRow } = await supabase
+            .from('admin_users')
+            .select('id, is_active')
+            .eq('id', user.id)
+            .maybeSingle();
+          if (adminRow?.is_active) {
+            setIsAuthenticated(true);
+          }
+        }
+      }
+
       const bl = await loadBranches();
       setBranches(bl);
       const pl = await loadProducts(bl);
@@ -265,6 +282,10 @@ export function AppProvider({ children }: { children: ReactNode }) {
           confirmButtonColor: '#D4AF37',
         });
         return false;
+      }
+      // Store the session tokens so callAdminFunction sends a valid admin token
+      if (data.accessToken && data.refreshToken) {
+        await setAdminSession(data.accessToken, data.refreshToken);
       }
       setIsAuthenticated(true);
       Swal.fire({

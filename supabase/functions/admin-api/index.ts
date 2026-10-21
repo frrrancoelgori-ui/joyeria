@@ -16,6 +16,8 @@ const MAX_ATTEMPTS = 5;
 const WINDOW_MINUTES = 15;
 const LOCKOUT_SECONDS = 60;
 
+let bootstrapDone = false;
+
 function getClientIp(req: Request): string {
   const fwd = req.headers.get("x-forwarded-for");
   if (fwd) return fwd.split(",")[0].trim();
@@ -23,6 +25,43 @@ function getClientIp(req: Request): string {
   if (real) return real.trim();
   return "unknown";
 }
+
+function json(body: any, status = 200): Response {
+  return new Response(JSON.stringify(body), {
+    status,
+    headers: { ...corsHeaders, "Content-Type": "application/json" },
+  });
+}
+
+// ---- Auth verification ----
+
+async function verifyAdmin(req: Request): Promise<{ adminId: string; username: string } | null> {
+  const authHeader = req.headers.get("Authorization") || "";
+  const token = authHeader.replace(/^Bearer\s+/i, "").trim();
+  if (!token || token === Deno.env.get("SUPABASE_ANON_KEY")) return null;
+
+  const { data: { user }, error } = await supabase.auth.getUser(token);
+  if (error || !user) return null;
+
+  const { data: admin } = await supabase
+    .from("admin_users")
+    .select("id, username, is_active")
+    .eq("id", user.id)
+    .maybeSingle();
+
+  if (!admin || !admin.is_active) return null;
+  return { adminId: admin.id, username: admin.username };
+}
+
+function requireAuth(handler: (req: Request, admin: { adminId: string; username: string }) => Promise<Response>) {
+  return async (req: Request): Promise<Response> => {
+    const admin = await verifyAdmin(req);
+    if (!admin) return json({ error: "No autorizado" }, 401);
+    return handler(req, admin);
+  };
+}
+
+// ---- Rate limiting ----
 
 async function checkRateLimit(ip: string): Promise<{ locked: boolean; remaining: number; retryAfter: number }> {
   const since = new Date(Date.now() - WINDOW_MINUTES * 60 * 1000).toISOString();
@@ -46,19 +85,25 @@ async function checkRateLimit(ip: string): Promise<{ locked: boolean; remaining:
 
 async function recordAttempt(ip: string, username: string, success: boolean) {
   await supabase.from("login_attempts").insert({ ip_address: ip, username, success });
+  await supabase.rpc("cleanup_login_attempts").catch(() => {});
 }
 
+// ---- Bootstrap admin (cold-start only) ----
+
 async function ensureBootstrapAdmin(): Promise<void> {
+  if (bootstrapDone) return;
+
   const { data: existing } = await supabase
     .from("admin_users")
     .select("id")
     .limit(1);
-  if (existing && existing.length > 0) return;
+  if (existing && existing.length > 0) {
+    bootstrapDone = true;
+    return;
+  }
 
   const adminEmail = "admin@diamantereal.local";
 
-  // Try to find an existing auth user first (a previous deploy may have
-  // created it but failed before inserting the admin_users row).
   let authUid: string | null = null;
   const { data: existingUser } = await supabase.auth.admin.listUsers();
   if (existingUser?.users) {
@@ -76,16 +121,23 @@ async function ensureBootstrapAdmin(): Promise<void> {
     authUid = authUser.user.id;
   }
 
+  const { data: hashData, error: hashErr } = await supabase.rpc("hash_password_bcrypt", { p_password: "admin123" });
+  if (hashErr) throw new Error(`hash failed: ${hashErr.message}`);
+
   const { error: insertErr } = await supabase.from("admin_users").insert({
     id: authUid,
     username: "admin",
     full_name: "Administrador Principal",
     role: "super_admin",
     is_active: true,
-    password_hash: await hashPassword("admin123"),
+    password_hash: hashData as string,
   });
   if (insertErr) throw new Error(`No se pudo registrar el admin: ${insertErr.message}`);
+
+  bootstrapDone = true;
 }
+
+// ---- Password helpers ----
 
 async function hashPassword(password: string): Promise<string> {
   const { data, error } = await supabase.rpc("hash_password_bcrypt", { p_password: password });
@@ -101,6 +153,8 @@ async function verifyPassword(password: string, hash: string): Promise<boolean> 
   if (error) return false;
   return data === true;
 }
+
+// ---- Login ----
 
 async function handleLogin(req: Request, ip: string): Promise<Response> {
   const { username, password } = await req.json();
@@ -138,16 +192,41 @@ async function handleLogin(req: Request, ip: string): Promise<Response> {
   await recordAttempt(ip, username, true);
   await supabase.from("admin_users").update({ last_login: new Date().toISOString() }).eq("id", admin.id);
 
-  // Issue a session token via Supabase auth (password sign-in)
+  // Look up the auth user's actual email (may have changed with username)
+  const { data: authUser } = await supabase.auth.admin.getUserById(admin.id);
+  const authEmail = authUser?.user?.email || "admin@diamantereal.local";
+
   const { data: session, error: signInErr } = await supabase.auth.signInWithPassword({
-    email: "admin@diamantereal.local",
+    email: authEmail,
     password: password,
   });
+
+  // If password doesn't match the auth user (e.g. credentials were changed via
+  // the admin_users table but not synced to auth), update the auth password to
+  // match the current admin_users hash, then retry.
   if (signInErr || !session.session) {
-    // Fallback: return a simple success with admin id (the storefront uses
-    // isAuthenticated state; the token is a bonus for service calls).
-    return json({ success: true, adminId: admin.id, username: admin.username });
+    const { error: updateErr } = await supabase.auth.admin.updateUserById(admin.id, {
+      password: password,
+    });
+    if (updateErr) {
+      return json({ success: true, adminId: admin.id, username: admin.username });
+    }
+    const { data: retry, error: retryErr } = await supabase.auth.signInWithPassword({
+      email: authEmail,
+      password: password,
+    });
+    if (retryErr || !retry.session) {
+      return json({ success: true, adminId: admin.id, username: admin.username });
+    }
+    return json({
+      success: true,
+      adminId: admin.id,
+      username: admin.username,
+      accessToken: retry.session.access_token,
+      refreshToken: retry.session.refresh_token,
+    });
   }
+
   return json({
     success: true,
     adminId: admin.id,
@@ -157,7 +236,9 @@ async function handleLogin(req: Request, ip: string): Promise<Response> {
   });
 }
 
-async function handleChangeCredentials(req: Request, ip: string): Promise<Response> {
+// ---- Change credentials (auth-required) ----
+
+async function handleChangeCredentials(req: Request, admin: { adminId: string; username: string }): Promise<Response> {
   const { currentPassword, newUsername, newPassword } = await req.json();
   if (!currentPassword || !newUsername || !newPassword) {
     return json({ error: "Todos los campos son obligatorios" }, 400);
@@ -165,19 +246,20 @@ async function handleChangeCredentials(req: Request, ip: string): Promise<Respon
   if (newPassword.length < 6) {
     return json({ error: "La nueva contraseña debe tener al menos 6 caracteres" }, 400);
   }
+  if (newUsername.length < 3) {
+    return json({ error: "El usuario debe tener al menos 3 caracteres" }, 400);
+  }
 
-  await ensureBootstrapAdmin();
-
-  const { data: admin } = await supabase
+  const { data: adminRow } = await supabase
     .from("admin_users")
     .select("id, username, password_hash")
-    .limit(1)
+    .eq("id", admin.adminId)
     .maybeSingle();
-  if (!admin) return json({ error: "Admin no encontrado" }, 404);
+  if (!adminRow) return json({ error: "Admin no encontrado" }, 404);
 
-  const ok = await verifyPassword(currentPassword, admin.password_hash);
+  const ok = await verifyPassword(currentPassword, adminRow.password_hash);
   if (!ok) {
-    await recordAttempt(ip, admin.username, false);
+    await recordAttempt(getClientIp(req), adminRow.username, false);
     return json({ error: "Contraseña actual incorrecta" }, 401);
   }
 
@@ -185,37 +267,79 @@ async function handleChangeCredentials(req: Request, ip: string): Promise<Respon
   const { error } = await supabase
     .from("admin_users")
     .update({ username: newUsername, password_hash: newHash })
-    .eq("id", admin.id);
+    .eq("id", adminRow.id);
   if (error) return json({ error: "No se actualizaron las credenciales" }, 500);
 
-  // Also update the auth user password so the session token stays valid
-  await supabase.auth.admin.updateUserById(admin.id, {
+  // Update the auth user's password and email to stay in sync
+  const newEmail = `${newUsername}@diamantereal.local`;
+  await supabase.auth.admin.updateUserById(adminRow.id, {
     password: newPassword,
-    email: `${newUsername}@diamantereal.local`,
+    email: newEmail,
   });
 
   return json({ success: true });
 }
 
-// ---- Product CRUD (service role, bypasses RLS) ----
+// ---- Validation helpers ----
 
-async function handleProductAction(req: Request, method: string): Promise<Response> {
-  const body = method === "GET" ? null : await req.json().catch(() => null);
+function validateProduct(b: any, isUpdate: boolean): string | null {
+  if (!b.name || typeof b.name !== "string" || b.name.trim().length === 0)
+    return "El nombre del producto es obligatorio";
+  if (b.price === undefined || b.price === null || typeof b.price !== "number" || b.price < 0)
+    return "El precio debe ser un número válido mayor o igual a 0";
+  if (!b.category || typeof b.category !== "string" || b.category.trim().length === 0)
+    return "La categoría es obligatoria";
+  if (b.stock === undefined || b.stock === null || typeof b.stock !== "number" || b.stock < 0 || !Number.isInteger(b.stock))
+    return "El stock debe ser un número entero mayor o igual a 0";
+  if (!b.branchId || typeof b.branchId !== "string")
+    return "La sucursal es obligatoria";
+  if (!isUpdate && b.weight !== undefined && (typeof b.weight !== "number" || b.weight < 0))
+    return "El peso debe ser un número válido mayor o igual a 0";
+  return null;
+}
+
+function validateBranch(b: any, isUpdate: boolean): string | null {
+  if (!b.name || typeof b.name !== "string" || b.name.trim().length === 0)
+    return "El nombre de la sucursal es obligatorio";
+  if (b.coordinates) {
+    if (typeof b.coordinates.lat !== "number" || typeof b.coordinates.lng !== "number")
+      return "Las coordenadas deben ser números válidos";
+  }
+  return null;
+}
+
+function validateCustomer(b: any, isUpdate: boolean): string | null {
+  if (!b.fullName || typeof b.fullName !== "string" || b.fullName.trim().length === 0)
+    return "El nombre del cliente es obligatorio";
+  if (b.email && (typeof b.email !== "string" || !b.email.includes("@")))
+    return "El email no es válido";
+  return null;
+}
+
+// ---- Product CRUD ----
+
+async function handleProductAction(req: Request, method: string, admin: { adminId: string; username: string }): Promise<Response> {
+  const body = method === "DELETE" ? null : await req.json().catch(() => null);
 
   if (method === "POST") {
     const b = body;
+    const err = validateProduct(b, false);
+    if (err) return json({ error: err }, 400);
+
     const { data: branch } = await supabase
       .from("branches")
       .select("id, name")
       .eq("id", b.branchId)
       .maybeSingle();
+    if (!branch) return json({ error: "La sucursal especificada no existe" }, 400);
+
     const { data, error } = await supabase.from("products").insert({
-      name: b.name, description: b.description, price: b.price, category: b.category,
-      material: b.material, weight: b.weight, size: b.size, gemstone: b.gemstone || null,
+      name: b.name.trim(), description: b.description || null, price: b.price, category: b.category.trim(),
+      material: b.material || null, weight: b.weight || 0, size: b.size || null, gemstone: b.gemstone || null,
       certification: b.certification || null, branch_id: b.branchId, stock: b.stock,
-      is_customizable: b.isCustomizable, crafting_time: b.craftingTime || null,
-      image_url: b.image, additional_images: b.additionalImages || [],
-      status: b.status || 'available', is_active: true,
+      is_customizable: !!b.isCustomizable, crafting_time: b.craftingTime || null,
+      image_url: b.image || null, additional_images: b.additionalImages || [],
+      status: b.status || "available", is_active: true,
     }).select().single();
     if (error) return json({ error: error.message }, 500);
     return json({ success: true, product: mapProduct(data, branch?.name) });
@@ -223,18 +347,24 @@ async function handleProductAction(req: Request, method: string): Promise<Respon
 
   if (method === "PUT") {
     const b = body;
+    if (!b.id) return json({ error: "id requerido" }, 400);
+    const err = validateProduct(b, true);
+    if (err) return json({ error: err }, 400);
+
     const { data: branch } = await supabase
       .from("branches")
       .select("name")
       .eq("id", b.branchId)
       .maybeSingle();
+    if (!branch) return json({ error: "La sucursal especificada no existe" }, 400);
+
     const { data, error } = await supabase.from("products").update({
-      name: b.name, description: b.description, price: b.price, category: b.category,
-      material: b.material, weight: b.weight, size: b.size, gemstone: b.gemstone || null,
+      name: b.name.trim(), description: b.description || null, price: b.price, category: b.category.trim(),
+      material: b.material || null, weight: b.weight || 0, size: b.size || null, gemstone: b.gemstone || null,
       certification: b.certification || null, branch_id: b.branchId, stock: b.stock,
-      is_customizable: b.isCustomizable, crafting_time: b.craftingTime || null,
-      image_url: b.image, additional_images: b.additionalImages || [],
-      status: b.status || 'available',
+      is_customizable: !!b.isCustomizable, crafting_time: b.craftingTime || null,
+      image_url: b.image || null, additional_images: b.additionalImages || [],
+      status: b.status || "available",
     }).eq("id", b.id).select().single();
     if (error) return json({ error: error.message }, 500);
     return json({ success: true, product: mapProduct(data, branch?.name) });
@@ -270,21 +400,24 @@ function mapProduct(p: any, branchName?: string): any {
     branchName: branchName || "",
     isCustomizable: p.is_customizable,
     craftingTime: p.crafting_time || undefined,
-    status: p.status || 'available',
+    status: p.status || "available",
   };
 }
 
 // ---- Branch CRUD ----
 
-async function handleBranchAction(req: Request, method: string): Promise<Response> {
-  const body = method === "GET" ? null : await req.json().catch(() => null);
+async function handleBranchAction(req: Request, method: string, admin: { adminId: string; username: string }): Promise<Response> {
+  const body = method === "DELETE" ? null : await req.json().catch(() => null);
 
   if (method === "POST") {
     const b = body;
+    const err = validateBranch(b, false);
+    if (err) return json({ error: err }, 400);
+
     const { data, error } = await supabase.from("branches").insert({
-      name: b.name, address: b.address, city: b.city, state: b.state,
-      zip_code: b.zipCode, phone: b.phone, email: b.email, manager: b.manager,
-      opening_hours: b.openingHours, specialties: b.specialties, is_active: true,
+      name: b.name.trim(), address: b.address || null, city: b.city || null, state: b.state || null,
+      zip_code: b.zipCode || null, phone: b.phone || null, email: b.email || null, manager: b.manager || null,
+      opening_hours: b.openingHours || null, specialties: b.specialties || [], is_active: true,
       latitude: b.coordinates?.lat, longitude: b.coordinates?.lng,
     }).select().single();
     if (error) return json({ error: error.message }, 500);
@@ -293,10 +426,14 @@ async function handleBranchAction(req: Request, method: string): Promise<Respons
 
   if (method === "PUT") {
     const b = body;
+    if (!b.id) return json({ error: "id requerido" }, 400);
+    const err = validateBranch(b, true);
+    if (err) return json({ error: err }, 400);
+
     const { data, error } = await supabase.from("branches").update({
-      name: b.name, address: b.address, city: b.city, state: b.state,
-      zip_code: b.zipCode, phone: b.phone, email: b.email, manager: b.manager,
-      opening_hours: b.openingHours, specialties: b.specialties,
+      name: b.name.trim(), address: b.address || null, city: b.city || null, state: b.state || null,
+      zip_code: b.zipCode || null, phone: b.phone || null, email: b.email || null, manager: b.manager || null,
+      opening_hours: b.openingHours || null, specialties: b.specialties || [],
       latitude: b.coordinates?.lat, longitude: b.coordinates?.lng,
     }).eq("id", b.id).select().single();
     if (error) return json({ error: error.message }, 500);
@@ -334,11 +471,37 @@ function mapBranch(b: any): any {
   };
 }
 
-// ---- Sales: record a completed purchase ----
+// ---- Sales: record a completed purchase (public — storefront checkout) ----
 
 async function handleRecordSale(req: Request): Promise<Response> {
   const { items, total, customerEmail, customerId, branchId, paymentStatus, saleStatus, paymentMethod, notes } = await req.json();
-  if (!items || items.length === 0) return json({ error: "Carrito vacío" }, 400);
+  if (!items || !Array.isArray(items) || items.length === 0) return json({ error: "Carrito vacío" }, 400);
+  if (typeof total !== "number" || total < 0) return json({ error: "Total inválido" }, 400);
+
+  // Validate all items have required fields
+  for (const it of items) {
+    if (!it.product || !it.product.id || !it.product.name || typeof it.product.price !== "number") {
+      return json({ error: "Producto inválido en el carrito" }, 400);
+    }
+    if (typeof it.quantity !== "number" || it.quantity < 1 || !Number.isInteger(it.quantity)) {
+      return json({ error: "Cantidad inválida en el carrito" }, 400);
+    }
+  }
+
+  // Check stock for all items BEFORE recording the sale
+  for (const it of items) {
+    const { data: prod } = await supabase
+      .from("products")
+      .select("stock, is_active")
+      .eq("id", it.product.id)
+      .maybeSingle();
+    if (!prod || !prod.is_active) {
+      return json({ error: `Producto no disponible: ${it.product.name}` }, 400);
+    }
+    if (prod.stock < it.quantity) {
+      return json({ error: `Stock insuficiente para ${it.product.name}. Disponible: ${prod.stock}` }, 400);
+    }
+  }
 
   const { data: sale, error } = await supabase.from("sales").insert({
     customer_email: customerEmail || null,
@@ -363,17 +526,21 @@ async function handleRecordSale(req: Request): Promise<Response> {
   const { error: itemErr } = await supabase.from("sale_items").insert(rows);
   if (itemErr) return json({ error: itemErr.message }, 500);
 
-  // Decrement stock and mark products as sold if stock reaches 0
+  // Atomically decrement stock and mark sold if stock reaches 0
   for (const it of items) {
-    await supabase.rpc("decrement_stock", { p_product_id: it.product.id, p_qty: it.quantity });
-    // Mark product status as sold if stock is now 0
+    const { data: ok } = await supabase.rpc("decrement_stock", { p_product_id: it.product.id, p_qty: it.quantity });
+    if (ok === false) {
+      // Stock was insufficient (race condition) — the sale is already recorded,
+      // but we log the discrepancy. In a real system this would trigger a review.
+      console.error(`Stock mismatch for product ${it.product.id} during sale ${sale.id}`);
+      continue;
+    }
     const { data: prod } = await supabase.from("products").select("stock").eq("id", it.product.id).maybeSingle();
     if (prod && prod.stock <= 0) {
-      await supabase.from("products").update({ status: 'sold' }).eq("id", it.product.id);
+      await supabase.from("products").update({ status: "sold" }).eq("id", it.product.id);
     }
   }
 
-  // Update customer stats if a customer was assigned
   if (customerId) {
     await supabase.rpc("update_customer_stats", { p_customer_id: customerId }).catch(() => {});
   }
@@ -383,13 +550,16 @@ async function handleRecordSale(req: Request): Promise<Response> {
 
 // ---- Customer CRUD ----
 
-async function handleCustomerAction(req: Request, method: string): Promise<Response> {
-  const body = method === "GET" ? null : await req.json().catch(() => null);
+async function handleCustomerAction(req: Request, method: string, admin: { adminId: string; username: string }): Promise<Response> {
+  const body = method === "DELETE" ? null : await req.json().catch(() => null);
 
   if (method === "POST") {
     const b = body;
+    const err = validateCustomer(b, false);
+    if (err) return json({ error: err }, 400);
+
     const { data, error } = await supabase.from("customers").insert({
-      full_name: b.fullName, phone: b.phone || null, email: b.email || null,
+      full_name: b.fullName.trim(), phone: b.phone || null, email: b.email || null,
       address: b.address || null, city: b.city || null, notes: b.notes || null,
     }).select().single();
     if (error) return json({ error: error.message }, 500);
@@ -398,8 +568,12 @@ async function handleCustomerAction(req: Request, method: string): Promise<Respo
 
   if (method === "PUT") {
     const b = body;
+    if (!b.id) return json({ error: "id requerido" }, 400);
+    const err = validateCustomer(b, true);
+    if (err) return json({ error: err }, 400);
+
     const { data, error } = await supabase.from("customers").update({
-      full_name: b.fullName, phone: b.phone || null, email: b.email || null,
+      full_name: b.fullName.trim(), phone: b.phone || null, email: b.email || null,
       address: b.address || null, city: b.city || null, notes: b.notes || null,
       updated_at: new Date().toISOString(),
     }).eq("id", b.id).select().single();
@@ -422,11 +596,11 @@ function mapCustomer(c: any): any {
   return {
     id: c.id,
     fullName: c.full_name,
-    phone: c.phone || '',
-    email: c.email || '',
-    address: c.address || '',
-    city: c.city || '',
-    notes: c.notes || '',
+    phone: c.phone || "",
+    email: c.email || "",
+    address: c.address || "",
+    city: c.city || "",
+    notes: c.notes || "",
     totalPurchases: c.total_purchases || 0,
     totalSpent: Number(c.total_spent) || 0,
     createdAt: c.created_at,
@@ -435,7 +609,7 @@ function mapCustomer(c: any): any {
 
 // ---- Sales management ----
 
-async function handleSaleAction(req: Request, method: string): Promise<Response> {
+async function handleSaleAction(req: Request, method: string, admin: { adminId: string; username: string }): Promise<Response> {
   if (method === "GET") {
     const { data, error } = await supabase
       .from("sales")
@@ -448,6 +622,7 @@ async function handleSaleAction(req: Request, method: string): Promise<Response>
 
   if (method === "PUT") {
     const b = await req.json();
+    if (!b.id) return json({ error: "id requerido" }, 400);
     const updates: any = { updated_at: new Date().toISOString() };
     if (b.status !== undefined) updates.status = b.status;
     if (b.paymentStatus !== undefined) updates.payment_status = b.paymentStatus;
@@ -468,7 +643,7 @@ function mapSaleWithCustomer(s: any): any {
     saleNumber: s.sale_number,
     date: s.created_at,
     total: Number(s.total_amount),
-    status: s.status || s.payment_status || 'completed',
+    status: s.status || s.payment_status || "completed",
     paymentStatus: s.payment_status,
     paymentMethod: s.payment_method,
     notes: s.notes,
@@ -489,16 +664,9 @@ function mapSaleWithCustomer(s: any): any {
   };
 }
 
-function json(body: any, status = 200): Response {
-  return new Response(JSON.stringify(body), {
-    status,
-    headers: { ...corsHeaders, "Content-Type": "application/json" },
-  });
-}
-
 // ---- Store settings ----
 
-async function handleSettings(req: Request, method: string): Promise<Response> {
+async function handleSettings(req: Request, method: string, admin: { adminId: string; username: string }): Promise<Response> {
   if (method === "GET") {
     const { data, error } = await supabase
       .from("store_settings")
@@ -517,7 +685,11 @@ async function handleSettings(req: Request, method: string): Promise<Response> {
   if (method === "PUT") {
     const b = await req.json();
     const updates: any = { updated_at: new Date().toISOString() };
-    if (b.storeName !== undefined) updates.store_name = b.storeName;
+    if (b.storeName !== undefined) {
+      if (typeof b.storeName !== "string" || b.storeName.trim().length === 0)
+        return json({ error: "El nombre de la tienda es obligatorio" }, 400);
+      updates.store_name = b.storeName.trim();
+    }
     if (b.whatsappNumber !== undefined) updates.whatsapp_number = b.whatsappNumber;
     if (b.logoUrl !== undefined) updates.logo_url = b.logoUrl || null;
 
@@ -541,6 +713,10 @@ async function handleSettings(req: Request, method: string): Promise<Response> {
   return json({ error: "Método no soportado" }, 405);
 }
 
+// ============================================================
+// Router
+// ============================================================
+
 Deno.serve(async (req: Request) => {
   if (req.method === "OPTIONS") {
     return new Response(null, { status: 200, headers: corsHeaders });
@@ -551,14 +727,46 @@ Deno.serve(async (req: Request) => {
   const ip = getClientIp(req);
 
   try {
+    // Public routes (no auth required)
     if (path === "/login" && req.method === "POST") return await handleLogin(req, ip);
-    if (path === "/change-credentials" && req.method === "POST") return await handleChangeCredentials(req, ip);
-    if (path === "/product" && ["POST", "PUT", "DELETE"].includes(req.method)) return await handleProductAction(req, req.method);
-    if (path === "/branch" && ["POST", "PUT", "DELETE"].includes(req.method)) return await handleBranchAction(req, req.method);
     if (path === "/sale" && req.method === "POST") return await handleRecordSale(req);
-    if (path === "/sales" && ["GET", "PUT"].includes(req.method)) return await handleSaleAction(req, req.method);
-    if (path === "/customer" && ["POST", "PUT", "DELETE"].includes(req.method)) return await handleCustomerAction(req, req.method);
-    if (path === "/settings" && ["GET", "PUT"].includes(req.method)) return await handleSettings(req, req.method);
+
+    // Settings GET is public (storefront needs to read settings)
+    if (path === "/settings" && req.method === "GET") {
+      const { data, error } = await supabase
+        .from("store_settings")
+        .select("*")
+        .eq("id", 1)
+        .maybeSingle();
+      if (error) return json({ error: error.message }, 500);
+      if (!data) return json({ error: "No settings found" }, 404);
+      return json({
+        storeName: data.store_name,
+        whatsappNumber: data.whatsapp_number,
+        logoUrl: data.logo_url,
+      });
+    }
+
+    // Authenticated routes
+    if (path === "/change-credentials" && req.method === "POST") {
+      return await requireAuth(handleChangeCredentials)(req);
+    }
+    if (path === "/product" && ["POST", "PUT", "DELETE"].includes(req.method)) {
+      return await requireAuth((r, a) => handleProductAction(r, req.method, a))(req);
+    }
+    if (path === "/branch" && ["POST", "PUT", "DELETE"].includes(req.method)) {
+      return await requireAuth((r, a) => handleBranchAction(r, req.method, a))(req);
+    }
+    if (path === "/sales" && ["GET", "PUT"].includes(req.method)) {
+      return await requireAuth((r, a) => handleSaleAction(r, req.method, a))(req);
+    }
+    if (path === "/customer" && ["POST", "PUT", "DELETE"].includes(req.method)) {
+      return await requireAuth((r, a) => handleCustomerAction(r, req.method, a))(req);
+    }
+    if (path === "/settings" && req.method === "PUT") {
+      return await requireAuth((r, a) => handleSettings(r, "PUT", a))(req);
+    }
+
     return json({ error: "Ruta no encontrada" }, 404);
   } catch (err) {
     return json({ error: err.message || "Error interno" }, 500);
