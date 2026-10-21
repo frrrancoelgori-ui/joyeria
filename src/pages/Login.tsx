@@ -7,7 +7,7 @@ import { useApp } from '../context/AppContext';
 
 export function Login() {
   const { isAuthenticated, loginWithCredentials, storeSettings } = useApp();
-  const [username, setUsername] = useState('');
+  const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
@@ -19,7 +19,7 @@ export function Login() {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setIsLoading(true);
-    await loginWithCredentials(username, password);
+    await loginWithCredentials(email, password);
     setIsLoading(false);
   };
 
@@ -53,16 +53,16 @@ export function Login() {
         <form onSubmit={handleSubmit} className="space-y-5">
           <div>
             <label className="block text-sm font-medium text-platinum-300 mb-2 tracking-wide">
-              Usuario
+              Correo Electrónico
             </label>
             <input
-              type="text"
-              value={username}
-              onChange={(e) => setUsername(e.target.value)}
+              type="email"
+              value={email}
+              onChange={(e) => setEmail(e.target.value)}
               className="luxury-input w-full py-3 px-4 rounded-lg"
-              placeholder="Ingresa tu usuario"
+              placeholder="Ingresa tu correo"
               required
-              autoComplete="username"
+              autoComplete="email"
             />
           </div>
 

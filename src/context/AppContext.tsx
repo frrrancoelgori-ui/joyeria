@@ -28,8 +28,8 @@ interface AppContextType {
   isAuthenticated: boolean;
   loading: boolean;
   storeSettings: StoreSettings;
-  loginWithCredentials: (username: string, password: string) => Promise<boolean>;
-  changeCredentials: (currentPassword: string, newUsername: string, newPassword: string) => Promise<boolean>;
+  loginWithCredentials: (email: string, password: string) => Promise<boolean>;
+  changePassword: (currentPassword: string, newPassword: string) => Promise<boolean>;
   updateStoreSettings: (settings: Partial<StoreSettings>) => Promise<boolean>;
   logout: () => void;
   selectBranch: (branch: Branch) => void;
@@ -267,11 +267,11 @@ export function AppProvider({ children }: { children: ReactNode }) {
   }, [loadBranches, loadProducts, loadSales, loadCustomers, loadSettings, analyticsService, customerService]);
 
   // ---- Auth ----
-  const loginWithCredentials = useCallback(async (username: string, password: string): Promise<boolean> => {
+  const loginWithCredentials = useCallback(async (email: string, password: string): Promise<boolean> => {
     try {
       const res = await callAdminFunction('/admin-api/login', {
         method: 'POST',
-        body: JSON.stringify({ username, password }),
+        body: JSON.stringify({ email, password }),
       });
       const data = await res.json();
       if (!res.ok) {
@@ -307,22 +307,22 @@ export function AppProvider({ children }: { children: ReactNode }) {
     }
   }, []);
 
-  const changeCredentials = useCallback(async (
-    currentPassword: string, newUsername: string, newPassword: string
+  const changePassword = useCallback(async (
+    currentPassword: string, newPassword: string
   ): Promise<boolean> => {
     try {
-      const res = await callAdminFunction('/admin-api/change-credentials', {
+      const res = await callAdminFunction('/admin-api/change-password', {
         method: 'POST',
-        body: JSON.stringify({ currentPassword, newUsername, newPassword }),
+        body: JSON.stringify({ currentPassword, newPassword }),
       });
       const data = await res.json();
       if (!res.ok) {
-        Swal.fire({ title: 'Error', text: data.error || 'No se actualizaron las credenciales', icon: 'error' });
+        Swal.fire({ title: 'Error', text: data.error || 'No se actualizó la contraseña', icon: 'error' });
         return false;
       }
       Swal.fire({
-        title: '¡Credenciales actualizadas!',
-        text: 'Las nuevas credenciales han sido guardadas de forma segura',
+        title: '¡Contraseña actualizada!',
+        text: 'Tu contraseña ha sido guardada de forma segura',
         icon: 'success',
         timer: 2000,
         showConfirmButton: false,
@@ -765,7 +765,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
     <AppContext.Provider value={{
       products, branches, selectedBranch, cart, sales, customers,
       isAuthenticated, loading, storeSettings,
-      loginWithCredentials, changeCredentials, updateStoreSettings, logout,
+      loginWithCredentials, changePassword, updateStoreSettings, logout,
       selectBranch, addBranch, updateBranch, deleteBranch,
       addProduct, addProducts, updateProduct, deleteProduct, transferStock,
       addCustomer, updateCustomer, deleteCustomer, updateSale, recordSale,

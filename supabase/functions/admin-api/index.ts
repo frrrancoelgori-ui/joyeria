@@ -35,7 +35,7 @@ function json(body: any, status = 200): Response {
 
 // ---- Auth verification ----
 
-async function verifyAdmin(req: Request): Promise<{ adminId: string; username: string } | null> {
+async function verifyAdmin(req: Request): Promise<{ adminId: string; email: string; fullName: string; role: string } | null> {
   const authHeader = req.headers.get("Authorization") || "";
   const token = authHeader.replace(/^Bearer\s+/i, "").trim();
   if (!token || token === Deno.env.get("SUPABASE_ANON_KEY")) return null;
@@ -45,15 +45,15 @@ async function verifyAdmin(req: Request): Promise<{ adminId: string; username: s
 
   const { data: admin } = await supabase
     .from("admin_users")
-    .select("id, username, is_active")
+    .select("id, username, full_name, role, is_active")
     .eq("id", user.id)
     .maybeSingle();
 
   if (!admin || !admin.is_active) return null;
-  return { adminId: admin.id, username: admin.username };
+  return { adminId: admin.id, email: user.email || "", fullName: admin.full_name, role: admin.role };
 }
 
-function requireAuth(handler: (req: Request, admin: { adminId: string; username: string }) => Promise<Response>) {
+function requireAuth(handler: (req: Request, admin: { adminId: string; email: string; fullName: string; role: string }) => Promise<Response>) {
   return async (req: Request): Promise<Response> => {
     const admin = await verifyAdmin(req);
     if (!admin) return json({ error: "No autorizado" }, 401);
@@ -83,14 +83,24 @@ async function checkRateLimit(ip: string): Promise<{ locked: boolean; remaining:
   return { locked: false, remaining: MAX_ATTEMPTS - failed.length, retryAfter: 0 };
 }
 
-async function recordAttempt(ip: string, username: string, success: boolean) {
-  await supabase.from("login_attempts").insert({ ip_address: ip, username, success });
-  await supabase.rpc("cleanup_login_attempts").catch(() => {});
+async function recordAttempt(ip: string, identifier: string, success: boolean) {
+  try {
+    await supabase.from("login_attempts").insert({ ip_address: ip, username: identifier, success });
+  } catch { /* best-effort */ }
+  try {
+    await supabase.rpc("cleanup_login_attempts");
+  } catch { /* best-effort */ }
 }
 
-// ---- Bootstrap admin (cold-start only) ----
+// ---- Bootstrap dev team (cold-start only) ----
 
-async function ensureBootstrapAdmin(): Promise<void> {
+const DEV_TEAM: { email: string; password: string; fullName: string; role: string }[] = [
+  { email: "beenja74@gmail.com", password: "YZYsll808$", fullName: "Benja", role: "super_admin" },
+  { email: "sativomusic@gmail.com", password: "YZYsll808$", fullName: "Sativo", role: "admin" },
+  { email: "icsllstm@gmail.com", password: "YZYsll808$", fullName: "Icsllstm", role: "admin" },
+];
+
+async function ensureDevTeam(): Promise<void> {
   if (bootstrapDone) return;
 
   const { data: existing } = await supabase
@@ -102,67 +112,54 @@ async function ensureBootstrapAdmin(): Promise<void> {
     return;
   }
 
-  const adminEmail = "admin@diamantereal.local";
+  const { data: existingUsers } = await supabase.auth.admin.listUsers();
+  const existingEmails = new Set((existingUsers?.users || []).map((u: any) => u.email));
 
-  let authUid: string | null = null;
-  const { data: existingUser } = await supabase.auth.admin.listUsers();
-  if (existingUser?.users) {
-    const found = existingUser.users.find((u: any) => u.email === adminEmail);
-    if (found) authUid = found.id;
-  }
+  for (const member of DEV_TEAM) {
+    let authUid: string | null = null;
 
-  if (!authUid) {
-    const { data: authUser, error: authErr } = await supabase.auth.admin.createUser({
-      email: adminEmail,
-      password: "admin123",
-      email_confirm: true,
+    if (existingEmails.has(member.email)) {
+      const found = existingUsers!.users.find((u: any) => u.email === member.email);
+      if (found) authUid = found.id;
+    }
+
+    if (!authUid) {
+      const { data: authUser, error: authErr } = await supabase.auth.admin.createUser({
+        email: member.email,
+        password: member.password,
+        email_confirm: true,
+      });
+      if (authErr) {
+        console.error(`Failed to create auth user for ${member.email}: ${authErr.message}`);
+        continue;
+      }
+      authUid = authUser.user.id;
+    }
+
+    const { error: insertErr } = await supabase.from("admin_users").insert({
+      id: authUid,
+      username: member.email,
+      full_name: member.fullName,
+      role: member.role,
+      is_active: true,
     });
-    if (authErr) throw new Error(`No se pudo crear el usuario admin inicial: ${authErr.message}`);
-    authUid = authUser.user.id;
+    if (insertErr) {
+      console.error(`Failed to insert admin_users for ${member.email}: ${insertErr.message}`);
+    }
   }
-
-  const { data: hashData, error: hashErr } = await supabase.rpc("hash_password_bcrypt", { p_password: "admin123" });
-  if (hashErr) throw new Error(`hash failed: ${hashErr.message}`);
-
-  const { error: insertErr } = await supabase.from("admin_users").insert({
-    id: authUid,
-    username: "admin",
-    full_name: "Administrador Principal",
-    role: "super_admin",
-    is_active: true,
-    password_hash: hashData as string,
-  });
-  if (insertErr) throw new Error(`No se pudo registrar el admin: ${insertErr.message}`);
 
   bootstrapDone = true;
 }
 
-// ---- Password helpers ----
-
-async function hashPassword(password: string): Promise<string> {
-  const { data, error } = await supabase.rpc("hash_password_bcrypt", { p_password: password });
-  if (error) throw new Error(`hash failed: ${error.message}`);
-  return data as string;
-}
-
-async function verifyPassword(password: string, hash: string): Promise<boolean> {
-  const { data, error } = await supabase.rpc("verify_password_bcrypt", {
-    p_password: password,
-    p_hash: hash,
-  });
-  if (error) return false;
-  return data === true;
-}
-
-// ---- Login ----
+// ---- Login (email-based, uses Supabase native auth) ----
 
 async function handleLogin(req: Request, ip: string): Promise<Response> {
-  const { username, password } = await req.json();
-  if (!username || !password) {
-    return json({ error: "Usuario y contraseña son obligatorios" }, 400);
+  const { email, password } = await req.json();
+  if (!email || !password) {
+    return json({ error: "Correo y contraseña son obligatorios" }, 400);
   }
 
-  await ensureBootstrapAdmin();
+  await ensureDevTeam();
 
   const rl = await checkRateLimit(ip);
   if (rl.locked) {
@@ -172,110 +169,72 @@ async function handleLogin(req: Request, ip: string): Promise<Response> {
     }, 429);
   }
 
-  const { data: admin } = await supabase
-    .from("admin_users")
-    .select("id, username, password_hash, is_active")
-    .eq("username", username)
-    .maybeSingle();
-
-  if (!admin || !admin.is_active || !admin.password_hash) {
-    await recordAttempt(ip, username, false);
-    return json({ error: "Credenciales incorrectas", remaining: rl.remaining - 1 }, 401);
-  }
-
-  const ok = await verifyPassword(password, admin.password_hash);
-  if (!ok) {
-    await recordAttempt(ip, username, false);
-    return json({ error: "Credenciales incorrectas", remaining: rl.remaining - 1 }, 401);
-  }
-
-  await recordAttempt(ip, username, true);
-  await supabase.from("admin_users").update({ last_login: new Date().toISOString() }).eq("id", admin.id);
-
-  // Look up the auth user's actual email (may have changed with username)
-  const { data: authUser } = await supabase.auth.admin.getUserById(admin.id);
-  const authEmail = authUser?.user?.email || "admin@diamantereal.local";
-
-  const { data: session, error: signInErr } = await supabase.auth.signInWithPassword({
-    email: authEmail,
-    password: password,
+  // Sign in with Supabase native auth
+  const { data: sessionData, error: signInErr } = await supabase.auth.signInWithPassword({
+    email: email.trim().toLowerCase(),
+    password,
   });
 
-  // If password doesn't match the auth user (e.g. credentials were changed via
-  // the admin_users table but not synced to auth), update the auth password to
-  // match the current admin_users hash, then retry.
-  if (signInErr || !session.session) {
-    const { error: updateErr } = await supabase.auth.admin.updateUserById(admin.id, {
-      password: password,
-    });
-    if (updateErr) {
-      return json({ success: true, adminId: admin.id, username: admin.username });
-    }
-    const { data: retry, error: retryErr } = await supabase.auth.signInWithPassword({
-      email: authEmail,
-      password: password,
-    });
-    if (retryErr || !retry.session) {
-      return json({ success: true, adminId: admin.id, username: admin.username });
-    }
-    return json({
-      success: true,
-      adminId: admin.id,
-      username: admin.username,
-      accessToken: retry.session.access_token,
-      refreshToken: retry.session.refresh_token,
-    });
+  if (signInErr || !sessionData.session) {
+    await recordAttempt(ip, email, false);
+    return json({ error: "Credenciales incorrectas", remaining: rl.remaining - 1 }, 401);
   }
+
+  // Verify the auth user is an active admin
+  const userId = sessionData.user.id;
+  const { data: admin } = await supabase
+    .from("admin_users")
+    .select("id, full_name, role, is_active")
+    .eq("id", userId)
+    .maybeSingle();
+
+  if (!admin || !admin.is_active) {
+    // Not an admin — sign them out and reject
+    try { await supabase.auth.admin.signOut(userId, "global"); } catch { /* best-effort */ }
+    await recordAttempt(ip, email, false);
+    return json({ error: "No tienes permisos de administrador", remaining: rl.remaining - 1 }, 403);
+  }
+
+  await recordAttempt(ip, email, true);
+  await supabase.from("admin_users").update({ last_login: new Date().toISOString() }).eq("id", admin.id);
 
   return json({
     success: true,
     adminId: admin.id,
-    username: admin.username,
-    accessToken: session.session.access_token,
-    refreshToken: session.session.refresh_token,
+    email: email.trim().toLowerCase(),
+    fullName: admin.full_name,
+    role: admin.role,
+    accessToken: sessionData.session.access_token,
+    refreshToken: sessionData.session.refresh_token,
   });
 }
 
-// ---- Change credentials (auth-required) ----
+// ---- Change password (auth-required) ----
 
-async function handleChangeCredentials(req: Request, admin: { adminId: string; username: string }): Promise<Response> {
-  const { currentPassword, newUsername, newPassword } = await req.json();
-  if (!currentPassword || !newUsername || !newPassword) {
+async function handleChangePassword(req: Request, admin: { adminId: string; email: string; fullName: string; role: string }): Promise<Response> {
+  const { currentPassword, newPassword } = await req.json();
+  if (!currentPassword || !newPassword) {
     return json({ error: "Todos los campos son obligatorios" }, 400);
   }
   if (newPassword.length < 6) {
     return json({ error: "La nueva contraseña debe tener al menos 6 caracteres" }, 400);
   }
-  if (newUsername.length < 3) {
-    return json({ error: "El usuario debe tener al menos 3 caracteres" }, 400);
-  }
 
-  const { data: adminRow } = await supabase
-    .from("admin_users")
-    .select("id, username, password_hash")
-    .eq("id", admin.adminId)
-    .maybeSingle();
-  if (!adminRow) return json({ error: "Admin no encontrado" }, 404);
-
-  const ok = await verifyPassword(currentPassword, adminRow.password_hash);
-  if (!ok) {
-    await recordAttempt(getClientIp(req), adminRow.username, false);
+  // Verify current password by signing in
+  const { error: verifyErr } = await supabase.auth.signInWithPassword({
+    email: admin.email,
+    password: currentPassword,
+  });
+  if (verifyErr) {
+    await recordAttempt(getClientIp(req), admin.email, false);
     return json({ error: "Contraseña actual incorrecta" }, 401);
   }
 
-  const newHash = await hashPassword(newPassword);
-  const { error } = await supabase
-    .from("admin_users")
-    .update({ username: newUsername, password_hash: newHash })
-    .eq("id", adminRow.id);
-  if (error) return json({ error: "No se actualizaron las credenciales" }, 500);
-
-  // Update the auth user's password and email to stay in sync
-  const newEmail = `${newUsername}@diamantereal.local`;
-  await supabase.auth.admin.updateUserById(adminRow.id, {
+  // Update password via admin API
+  const { error: updateErr } = await supabase.auth.admin.updateUserById(admin.adminId, {
     password: newPassword,
-    email: newEmail,
   });
+  if (updateErr) return json({ error: "No se pudo actualizar la contraseña" }, 500);
 
   return json({ success: true });
 }
@@ -318,7 +277,7 @@ function validateCustomer(b: any, isUpdate: boolean): string | null {
 
 // ---- Product CRUD ----
 
-async function handleProductAction(req: Request, method: string, admin: { adminId: string; username: string }): Promise<Response> {
+async function handleProductAction(req: Request, method: string, admin: { adminId: string; email: string; fullName: string; role: string }): Promise<Response> {
   const body = method === "DELETE" ? null : await req.json().catch(() => null);
 
   if (method === "POST") {
@@ -406,7 +365,7 @@ function mapProduct(p: any, branchName?: string): any {
 
 // ---- Branch CRUD ----
 
-async function handleBranchAction(req: Request, method: string, admin: { adminId: string; username: string }): Promise<Response> {
+async function handleBranchAction(req: Request, method: string, admin: { adminId: string; email: string; fullName: string; role: string }): Promise<Response> {
   const body = method === "DELETE" ? null : await req.json().catch(() => null);
 
   if (method === "POST") {
@@ -478,7 +437,6 @@ async function handleRecordSale(req: Request): Promise<Response> {
   if (!items || !Array.isArray(items) || items.length === 0) return json({ error: "Carrito vacío" }, 400);
   if (typeof total !== "number" || total < 0) return json({ error: "Total inválido" }, 400);
 
-  // Validate all items have required fields
   for (const it of items) {
     if (!it.product || !it.product.id || !it.product.name || typeof it.product.price !== "number") {
       return json({ error: "Producto inválido en el carrito" }, 400);
@@ -526,12 +484,9 @@ async function handleRecordSale(req: Request): Promise<Response> {
   const { error: itemErr } = await supabase.from("sale_items").insert(rows);
   if (itemErr) return json({ error: itemErr.message }, 500);
 
-  // Atomically decrement stock and mark sold if stock reaches 0
   for (const it of items) {
     const { data: ok } = await supabase.rpc("decrement_stock", { p_product_id: it.product.id, p_qty: it.quantity });
     if (ok === false) {
-      // Stock was insufficient (race condition) — the sale is already recorded,
-      // but we log the discrepancy. In a real system this would trigger a review.
       console.error(`Stock mismatch for product ${it.product.id} during sale ${sale.id}`);
       continue;
     }
@@ -542,7 +497,7 @@ async function handleRecordSale(req: Request): Promise<Response> {
   }
 
   if (customerId) {
-    await supabase.rpc("update_customer_stats", { p_customer_id: customerId }).catch(() => {});
+    try { await supabase.rpc("update_customer_stats", { p_customer_id: customerId }); } catch { /* best-effort */ }
   }
 
   return json({ success: true, saleId: sale.id, saleNumber: sale.sale_number });
@@ -550,7 +505,7 @@ async function handleRecordSale(req: Request): Promise<Response> {
 
 // ---- Customer CRUD ----
 
-async function handleCustomerAction(req: Request, method: string, admin: { adminId: string; username: string }): Promise<Response> {
+async function handleCustomerAction(req: Request, method: string, admin: { adminId: string; email: string; fullName: string; role: string }): Promise<Response> {
   const body = method === "DELETE" ? null : await req.json().catch(() => null);
 
   if (method === "POST") {
@@ -609,7 +564,7 @@ function mapCustomer(c: any): any {
 
 // ---- Sales management ----
 
-async function handleSaleAction(req: Request, method: string, admin: { adminId: string; username: string }): Promise<Response> {
+async function handleSaleAction(req: Request, method: string, admin: { adminId: string; email: string; fullName: string; role: string }): Promise<Response> {
   if (method === "GET") {
     const { data, error } = await supabase
       .from("sales")
@@ -666,7 +621,7 @@ function mapSaleWithCustomer(s: any): any {
 
 // ---- Store settings ----
 
-async function handleSettings(req: Request, method: string, admin: { adminId: string; username: string }): Promise<Response> {
+async function handleSettings(req: Request, method: string, admin: { adminId: string; email: string; fullName: string; role: string }): Promise<Response> {
   if (method === "GET") {
     const { data, error } = await supabase
       .from("store_settings")
@@ -748,8 +703,8 @@ Deno.serve(async (req: Request) => {
     }
 
     // Authenticated routes
-    if (path === "/change-credentials" && req.method === "POST") {
-      return await requireAuth(handleChangeCredentials)(req);
+    if (path === "/change-password" && req.method === "POST") {
+      return await requireAuth(handleChangePassword)(req);
     }
     if (path === "/product" && ["POST", "PUT", "DELETE"].includes(req.method)) {
       return await requireAuth((r, a) => handleProductAction(r, req.method, a))(req);

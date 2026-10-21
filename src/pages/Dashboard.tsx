@@ -70,7 +70,7 @@ export function Dashboard() {
     getExecutiveSummary,
     exportProducts,
     exportSales,
-    changeCredentials,
+    changePassword,
   } = useApp();
 
   const [analytics, setAnalytics] = useState<any>({});
@@ -82,7 +82,6 @@ export function Dashboard() {
   const [lastUpdate, setLastUpdate] = useState<Date>(new Date());
   const [credentialsFormData, setCredentialsFormData] = useState({
     currentPassword: '',
-    newUsername: '',
     newPassword: '',
     confirmPassword: '',
   });
@@ -197,14 +196,13 @@ export function Dashboard() {
       Swal.fire({ title: 'Error', text: 'Las contraseñas no coinciden', icon: 'error' });
       return;
     }
-    const success = await changeCredentials(
+    const success = await changePassword(
       credentialsFormData.currentPassword,
-      credentialsFormData.newUsername,
       credentialsFormData.newPassword
     );
     if (success) {
       setCredentialsFormData({
-        currentPassword: '', newUsername: '', newPassword: '', confirmPassword: '',
+        currentPassword: '', newPassword: '', confirmPassword: '',
       });
       setShowCredentialsForm(false);
     }
@@ -647,7 +645,7 @@ export function Dashboard() {
             {/* Header Fijo */}
             <div className="flex-shrink-0 bg-charcoal-900 border-b border-platinum-700/30 px-4 sm:px-6 py-4 flex items-center justify-between">
               <h2 className="font-luxury text-xl font-semibold text-gradient-gold tracking-wide">
-                Cambiar Credenciales
+                Cambiar Contraseña
               </h2>
               <button
                 type="button"
@@ -667,16 +665,6 @@ export function Dashboard() {
                     type="password"
                     value={credentialsFormData.currentPassword}
                     onChange={e => setCredentialsFormData({ ...credentialsFormData, currentPassword: e.target.value })}
-                    className="luxury-input w-full py-2.5 px-3 rounded-lg"
-                    required
-                  />
-                </div>
-                <div>
-                  <label className="block text-sm font-medium text-platinum-300 mb-1.5">Nuevo Usuario</label>
-                  <input
-                    type="text"
-                    value={credentialsFormData.newUsername}
-                    onChange={e => setCredentialsFormData({ ...credentialsFormData, newUsername: e.target.value })}
                     className="luxury-input w-full py-2.5 px-3 rounded-lg"
                     required
                   />
